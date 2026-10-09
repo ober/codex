@@ -4,9 +4,25 @@
 
 | Requirement                 | Details                                                         |
 | --------------------------- | --------------------------------------------------------------- |
-| Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, or Windows 11 **via WSL2** |
+| Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, FreeBSD 15+, or Windows 11 **via WSL2** |
 | Git (optional, recommended) | 2.23+ for built-in PR helpers                                   |
 | RAM                         | 4-GB minimum (8-GB recommended)                                 |
+
+FreeBSD source builds are supported for the CLI and TUI on `x86_64-unknown-freebsd` when using the pinned Rust toolchain in `codex-rs/rust-toolchain.toml`. Install Rust 1.95.0, a C compiler, `cmake`, `pkgconf`, Git, Python, and `protobuf` (`protoc`) from the host package manager. The FreeBSD build uses the system `protoc`; set `PROTOC` when it is not on `PATH`.
+
+```sh
+git clone https://github.com/openai/codex.git
+cd codex/codex-rs
+cargo check --locked -p codex-cli --bin codex
+cargo build --locked --release -p codex-cli --bin codex
+./target/release/codex --version
+```
+
+FreeBSD has no Codex sandbox backend in this release. Requests that require a
+filesystem or process sandbox fail closed; do not map FreeBSD to the Linux
+bubblewrap backend. The native CLI, PTY execution, file operations, MCP, and
+TUI remain available subject to their host dependencies. There is no published
+FreeBSD npm or DotSlash artifact; run the binary built above.
 
 ### DotSlash
 

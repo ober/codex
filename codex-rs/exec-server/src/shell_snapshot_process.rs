@@ -51,7 +51,7 @@ impl SnapshotCapture {
                 if unsafe {
                     libc::waitid(
                         libc::P_PID,
-                        pid,
+                        pid.into(),
                         info.as_mut_ptr(),
                         libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
                     )
