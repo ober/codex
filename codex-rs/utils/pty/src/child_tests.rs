@@ -120,7 +120,7 @@ fn non_killing_drop_reaps_after_runtime_shutdown() -> anyhow::Result<()> {
             unsafe {
                 libc::waitid(
                     libc::P_PID,
-                    pid,
+                    pid.into(),
                     info.as_mut_ptr(),
                     libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
                 )
@@ -145,7 +145,7 @@ fn wait_until_reaped(pid: u32) -> anyhow::Result<()> {
         if unsafe {
             libc::waitid(
                 libc::P_PID,
-                pid,
+                pid.into(),
                 info.as_mut_ptr(),
                 libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
             )
