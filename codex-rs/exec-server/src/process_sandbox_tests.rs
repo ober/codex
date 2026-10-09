@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use codex_exec_server_protocol::JSONRPCErrorError;
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "freebsd")))]
 use codex_file_system::WindowsSandboxSelection;
 #[cfg(target_os = "macos")]
 use codex_network_proxy::ManagedNetworkSandboxContext;
@@ -66,6 +66,7 @@ async fn prepare_exec_request(
 
 #[cfg(unix)]
 #[tokio::test]
+#[cfg(not(target_os = "freebsd"))]
 async fn sandbox_request_wraps_native_argv_on_executor() {
     let command_directory = tempdir().expect("command directory");
     let cwd = AbsolutePathBuf::from_absolute_path(command_directory.path()).expect("absolute cwd");
@@ -180,6 +181,55 @@ async fn sandbox_request_wraps_native_argv_on_executor() {
     .err()
     .expect("unsupported MXC must fail closed");
     assert_eq!(error.message, "native MXC is unavailable on this executor");
+}
+
+#[cfg(target_os = "freebsd")]
+#[tokio::test]
+async fn unsupported_filesystem_sandbox_fails_closed_before_launch() {
+    let command_directory = tempdir().expect("command directory");
+    let cwd = AbsolutePathBuf::from_absolute_path(command_directory.path()).expect("absolute cwd");
+    let cwd_uri = PathUri::from_abs_path(&cwd);
+    let marker = command_directory.path().join("must-not-exist");
+    let self_exe = std::env::current_exe().expect("current executable");
+    let runtime_paths =
+        ExecServerRuntimeOptions::new(self_exe.clone(), Some(self_exe)).expect("runtime paths");
+    let sandbox = FileSystemSandboxContext::from_permission_profile(
+        PermissionProfile::workspace_write(),
+        cwd_uri.clone(),
+    );
+    let params = ExecParams {
+        metadata: Default::default(),
+        process_id: ProcessId::from("freebsd-fail-closed"),
+        argv: vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            format!("touch {}", marker.display()),
+        ],
+        cwd: cwd_uri,
+        shell_snapshot: None,
+        env_policy: None,
+        env: HashMap::new(),
+        tty: false,
+        pipe_stdin: false,
+        arg0: None,
+        sandbox: Some(sandbox),
+        enforce_managed_network: false,
+        managed_network: None,
+        network_proxy: None,
+    };
+
+    let error = prepare_exec_request(
+        &params,
+        HashMap::new(),
+        Some(&runtime_paths),
+        /*network_policy_decider*/ None,
+        /*network_policy_audit_observer*/ None,
+    )
+    .await
+    .err()
+    .expect("unsupported FreeBSD sandbox must fail closed");
+    assert!(error.message.contains("cannot be enforced"));
+    assert!(!marker.exists(), "rejected command must not run");
 }
 
 #[cfg(unix)]

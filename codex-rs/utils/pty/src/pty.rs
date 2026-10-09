@@ -606,9 +606,41 @@ pub fn close_inherited_fds_except(preserved_fds: &[RawFd]) {
     }
 }
 
+// FreeBSD does not provide the Linux close_range/procfs combination used by
+// the Linux implementation. Scan the descriptor limit with fork-safe libc
+// calls instead of enumerating /dev/fd, whose Rust directory iterator
+// allocates after fork.
+#[cfg(target_os = "freebsd")]
+pub(crate) fn close_inherited_fds_except(preserved_fds: &[RawFd]) {
+    let mut limit = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    // SAFETY: getrlimit writes to stack storage and does not allocate.
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &raw mut limit) } != 0 {
+        return;
+    }
+    let upper_bound = limit.rlim_cur.min(RawFd::MAX as libc::rlim_t) as RawFd;
+    for fd in libc::STDERR_FILENO + 1..upper_bound {
+        if preserved_fds.contains(&fd) {
+            continue;
+        }
+        // Keep CLOEXEC descriptors open so std::process can still use its
+        // internal exec-error pipe to report spawn failures.
+        // SAFETY: fcntl and close operate only on this child's descriptors.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        if flags >= 0 && flags & libc::FD_CLOEXEC == 0 {
+            unsafe { libc::close(fd) };
+        }
+    }
+}
+
 // Other Unix platforms use best-effort /dev/fd cleanup.
 // Directory enumeration allocates, so this path is not guaranteed fork-safe.
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "linux", target_os = "macos", target_os = "freebsd"))
+))]
 pub(crate) fn close_inherited_fds_except(preserved_fds: &[RawFd]) {
     if let Ok(dir) = std::fs::read_dir("/dev/fd") {
         let mut fds = Vec::new();
