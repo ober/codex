@@ -62,6 +62,23 @@ pub(super) struct CompatibilityError {
     pub restart_features: Option<BTreeMap<String, bool>>,
 }
 
+#[cfg(target_os = "freebsd")]
+pub(super) fn exclusion(
+    _cli: &Cli,
+    _cli_kv_overrides: &[(String, toml::Value)],
+    _loader_overrides: &LoaderOverrides,
+    _workload_identity_selected: bool,
+    _exec_server_url: Option<&std::ffi::OsStr>,
+) -> Option<&'static str> {
+    // FreeBSD has no published managed-daemon package. In particular, do not
+    // reuse a package installed for another host (for example
+    // aarch64-apple-darwin) from CODEX_HOME. Run the embedded app server by
+    // default; this keeps a source-built FreeBSD CLI self-contained and
+    // avoids launching an incompatible executable.
+    Some("FreeBSD has no compatible managed app-server package")
+}
+
+#[cfg(not(target_os = "freebsd"))]
 pub(super) fn exclusion(
     cli: &Cli,
     cli_kv_overrides: &[(String, toml::Value)],
