@@ -11,6 +11,7 @@ it and the expected returned output reaches that next request.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.server
 import json
 import os
@@ -38,6 +39,7 @@ MCP_SERVER = Path(__file__).with_name("fixture_mcp_server.py").resolve()
 JERBOA_SERVER = Path(os.environ.get("CODEX_TEST_JERBOA_SERVER", Path.home() / ".local/bin/jmcp"))
 JERBOA_HOME = Path(os.environ.get("CODEX_TEST_JERBOA_HOME", Path.home() / "mine/jerboa"))
 JERBOA_BIN = Path(os.environ.get("CODEX_TEST_JERBOA_BIN", Path.home() / ".local/bin/jerboa"))
+JERBOA_PRODUCTION_DATA = Path(os.environ.get("CODEX_TEST_JERBOA_DATA_DIR", "/home/user/.jmap/data"))
 JERBOA_SCRATCH_PARENT = Path.home() / "work/codex-runtime-repro/freebsd-jerboa-fixtures"
 EXPECTED_NESTED_TOOLS = {
     "apply_patch",
@@ -124,6 +126,28 @@ def nested_strings(value: Any) -> list[str]:
     return []
 
 
+def tree_digest(path: Path) -> tuple[str, int]:
+    """Hash regular files without following symlinks or exposing their contents."""
+    digest = hashlib.sha256()
+    file_count = 0
+    for directory, child_dirs, filenames in os.walk(path, followlinks=False):
+        child_dirs[:] = sorted(name for name in child_dirs if not (Path(directory) / name).is_symlink())
+        for filename in sorted(filenames):
+            file_path = Path(directory) / filename
+            if file_path.is_symlink() or not file_path.is_file():
+                continue
+            relative = file_path.relative_to(path).as_posix().encode("utf-8")
+            file_digest = hashlib.sha256()
+            with file_path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    file_digest.update(chunk)
+            digest.update(len(relative).to_bytes(8, "big"))
+            digest.update(relative)
+            digest.update(file_digest.digest())
+            file_count += 1
+    return digest.hexdigest(), file_count
+
+
 def validate_completed_turn(notification: dict[str, Any], turn_id: str) -> None:
     """Reject interrupted/failed terminal notifications for a completed probe."""
     if notification.get("method") != "turn/completed":
@@ -201,7 +225,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true", help="test terminal-notification assertions without starting Codex")
     parser.add_argument("--codex", type=Path, default=Path.home() / ".local/bin/codex-freebsd")
-    parser.add_argument("--case", choices=("host-smoke", "tool-catalog", "agent-schema", "agent-lifecycle", "image", "resources", "templates", "resource-read", "goals", "apply-patch", "workspace-write-fail-closed", "jerboa-read", "jerboa-writers", "jerboa-matrix-probe", "jerboa-all", "openai-docs", "mcp-missing-provider"))
+    parser.add_argument("--case", choices=("host-smoke", "tool-catalog", "agent-schema", "agent-lifecycle", "image", "resources", "templates", "resource-read", "goals", "apply-patch", "workspace-write-fail-closed", "jerboa-read", "jerboa-read-configured", "jerboa-writers", "jerboa-matrix-probe", "jerboa-all", "openai-docs", "mcp-missing-provider"))
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--allow-known-provider-errors", action="store_true", help="exploration only: return zero after fully recording known provider protocol errors")
     args = parser.parse_args()
@@ -223,6 +247,9 @@ def main() -> int:
             return 2
         if not JERBOA_SERVER.is_file() or not os.access(JERBOA_SERVER, os.X_OK):
             print(f"FAIL native Jerboa MCP executable unavailable: {JERBOA_SERVER}")
+            return 2
+        if args.case == "jerboa-read-configured" and not JERBOA_PRODUCTION_DATA.is_dir():
+            print("FAIL configured Jerboa data root is unavailable")
             return 2
         temp_parent = JERBOA_SCRATCH_PARENT
     with tempfile.TemporaryDirectory(prefix="codex-code-mode-appserver-", dir=temp_parent) as temporary:
@@ -371,16 +398,25 @@ def main() -> int:
                 'text("WORKSPACE_WRITE_FAIL_CLOSED_RESULT:" + evidence);'
             )
             expected_kind, expected_marker = "workspaceWriteFailClosed", "WORKSPACE_WRITE_FAIL_CLOSED_RESULT:"
-        elif args.case == "jerboa-read":
+        elif args.case in {"jerboa-read", "jerboa-read-configured"}:
             jerboa_tools_to_enable = ["jerboa_list_features"]
-            feature_path = root / "data" / "features.sexp"
+            if args.case == "jerboa-read-configured":
+                production_data_before = tree_digest(JERBOA_PRODUCTION_DATA)
+                read_args = {"query": "codex-freebsd", "limit": 3}
+                code_marker = "JERBOA_CONFIGURED_LIST_FEATURES_RESULT"
+            else:
+                feature_path = root / "data" / "features.sexp"
+                read_args = {"query": root.name, "features_path": str(feature_path), "limit": 3}
+                code_marker = "JERBOA_LIST_FEATURES_RESULT"
             code = (
-                'const hit = ALL_TOOLS.find(x => x.name.endsWith("__jerboa_list_features")); '
+                'const hit = ALL_TOOLS.find(x => x.name === "mcp__jerboa__jerboa_list_features"); '
                 'if (!hit) throw new Error("enabled Jerboa list_features tool is absent"); '
-                f'const r = await tools[hit.name]({{query:"{root.name}", features_path:{json.dumps(str(feature_path))}, limit:3}}); '
-                'text("JERBOA_LIST_FEATURES_RESULT:" + JSON.stringify(r));'
+                f'const args = {json.dumps(read_args, separators=(",", ":"))}; '
+                'const r = await tools[hit.name](args); '
+                'text(' + json.dumps(code_marker + ":") + ' + JSON.stringify({name:hit.name,args,result:r}));'
             )
-            expected_kind, expected_marker = "mcpToolCall", "JERBOA_LIST_FEATURES_RESULT"
+            expected_kind = "jerboaConfiguredRead" if args.case == "jerboa-read-configured" else "mcpToolCall"
+            expected_marker = code_marker
         elif args.case == "jerboa-matrix-probe":
             jerboa_tools_to_enable = ["jerboa_cross_repo_release_evidence_matrix"]
             matrix_root = root / "matrix-workspace"
@@ -556,7 +592,7 @@ def main() -> int:
                     mcp_environment = jerboa_mcp_environment
                 else:
                     for name in ("data", "data-repo", "jerboa-cache", "xdg-cache", "xdg-config", "tmp"):
-                        (root / name).mkdir(mode=0o700)
+                        (root / name).mkdir(mode=0o700, exist_ok=True)
                     mcp_environment = {
                         "HOME": str(home),
                         "XDG_CACHE_HOME": str(root / "xdg-cache"),
@@ -564,7 +600,9 @@ def main() -> int:
                         "TMPDIR": str(root / "tmp"),
                         "JERBOA_HOME": str(JERBOA_HOME),
                         "JERBOA_MCP_REPO": str(workspace),
-                        "JERBOA_MCP_DATA_DIR": str(root / "data"),
+                        "JERBOA_MCP_DATA_DIR": str(
+                            JERBOA_PRODUCTION_DATA if args.case == "jerboa-read-configured" else root / "data"
+                        ),
                         "JERBOA_MCP_DATA_REPO_DIR": str(root / "data-repo"),
                         "JERBOA_MCP_CACHE_HOME": str(root / "jerboa-cache"),
                         "JERBOA_MCP_DATA_OFFLINE": "1",
@@ -572,6 +610,17 @@ def main() -> int:
                         "JERBOA_MCP_LOG_FILE": str(root / "jmcp.log"),
                         "JERBOA_MCP_JERBOA_PATH": str(JERBOA_BIN),
                     }
+                    if args.case == "jerboa-read-configured":
+                        schema_probe = McpClient(str(JERBOA_SERVER), mcp_environment)
+                        try:
+                            if "jerboa_list_features" not in schema_probe.tools:
+                                raise AssertionError("configured Jerboa provider does not advertise list_features")
+                            print("JERBOA_PROVIDER_PROVENANCE: " + json.dumps(
+                                executable_provenance(str(JERBOA_SERVER), mcp_environment, schema_probe),
+                                sort_keys=True,
+                            ))
+                        finally:
+                            schema_probe.close()
                     assert jerboa_tools_to_enable is not None
                 config += (
                     '\n[mcp_servers.jerboa]\n'
@@ -581,7 +630,7 @@ def main() -> int:
                     '[mcp_servers.jerboa.env]\n'
                     + "".join(f'{key} = {json.dumps(value)}\n' for key, value in mcp_environment.items())
                 )
-                if args.case == "jerboa-read":
+                if args.case in {"jerboa-read", "jerboa-read-configured"}:
                     config += (
                         '[mcp_servers.jerboa.tools.jerboa_list_features]\n'
                         'approval_mode = "approve"\n'
@@ -608,8 +657,8 @@ def main() -> int:
             environment["TMPDIR"] = str(isolated_tmp)
             environment["XDG_CACHE_HOME"] = str(root / "xdg-cache")
             environment["XDG_CONFIG_HOME"] = str(root / "xdg-config")
-            Path(environment["XDG_CACHE_HOME"]).mkdir()
-            Path(environment["XDG_CONFIG_HOME"]).mkdir()
+            Path(environment["XDG_CACHE_HOME"]).mkdir(exist_ok=True)
+            Path(environment["XDG_CONFIG_HOME"]).mkdir(exist_ok=True)
             environment["OPENAI_API_KEY"] = API_KEY
             environment.pop("OPENAI_BASE_URL", None)
             native_path_bin = root / "native-path-bin"
@@ -753,6 +802,49 @@ def main() -> int:
                     and item.get("type") == "custom_tool_call_output"
                     and item.get("call_id") == "call-code-mode-fixture"
                 ]
+            if expected_kind == "jerboaConfiguredRead":
+                terminal = [
+                    event.get("params", {}).get("item", {}) for event in observed
+                    if event.get("params", {}).get("item", {}).get("type") == "mcpToolCall"
+                    and event.get("params", {}).get("item", {}).get("server") == "jerboa"
+                    and event.get("params", {}).get("item", {}).get("tool") == "jerboa_list_features"
+                    and event.get("params", {}).get("item", {}).get("status") in {"completed", "failed"}
+                ]
+                if len(terminal) != 1:
+                    raise AssertionError(f"configured list_features produced {len(terminal)} terminal MCP items; expected one")
+                item = terminal[0]
+                if item.get("status") != "completed" or not isinstance(item.get("result"), dict):
+                    raise AssertionError(
+                        "configured list_features did not return a successful MCP result "
+                        f"(status={item.get('status')!r})"
+                    )
+                if item.get("arguments") != read_args:
+                    raise AssertionError("configured list_features event arguments differ from the exact read-only request")
+                result = item["result"]
+                if result.get("isError") is True:
+                    raise AssertionError("configured list_features returned an MCP error result")
+                content = result.get("content")
+                structured = result.get("structuredContent")
+                nonempty_text = any(
+                    isinstance(entry, dict)
+                    and entry.get("type") == "text"
+                    and isinstance(entry.get("text"), str)
+                    and bool(entry["text"].strip())
+                    for entry in content or []
+                )
+                if not nonempty_text and not (isinstance(structured, dict) and bool(structured)):
+                    raise AssertionError("configured list_features returned no nonempty result content")
+                outer_output = returned_calls[0].get("output", "") if len(returned_calls) == 1 else ""
+                if expected_marker not in "\n".join(nested_strings(outer_output)):
+                    raise AssertionError("configured Code Mode result omitted the correlated list_features payload")
+                production_data_after = tree_digest(JERBOA_PRODUCTION_DATA)
+                if production_data_after != production_data_before:
+                    raise AssertionError("configured read-only list_features changed the production data tree")
+                print(
+                    "PASS configured Jerboa list_features: one correlated completed call, nonempty result, "
+                    f"{production_data_before[1]} production data files unchanged "
+                    f"(tree digest {production_data_before[0]})"
+                )
             if expected_kind == "mcpToolCall":
                 expected_tool = {"resources": "list_mcp_resources", "templates": "list_mcp_resource_templates", "resource-read": "read_mcp_resource", "jerboa-read": "jerboa_list_features"}[args.case]
                 expected_name = {"resources": "codex-fixture-note", "templates": "codex-fixture-item", "resource-read": "FIXTURE_RESOURCE_CONTENT_OK", "jerboa-read": root.name}[args.case]
@@ -1001,7 +1093,7 @@ def main() -> int:
                     f"observed item summaries: {json.dumps([{key: item.get(key) for key in ('type', 'name', 'status', 'path', 'output', 'text')} for item in observed_items], sort_keys=True)}; "
                     f"second-request input summary: {json.dumps([{key: item.get(key) for key in ('type', 'name', 'call_id', 'output')} for item in requests[1].get('input', []) if isinstance(item, dict)], sort_keys=True)}"
                 )
-            output_marker = expected_marker if args.case in {"host-smoke", "tool-catalog", "agent-schema", "agent-lifecycle", "image", "goals", "apply-patch", "workspace-write-fail-closed", "jerboa-read", "jerboa-writers", "jerboa-matrix-probe", "jerboa-all", "openai-docs"} else "NESTED_TOOL_RESULT_OK"
+            output_marker = expected_marker if args.case in {"host-smoke", "tool-catalog", "agent-schema", "agent-lifecycle", "image", "goals", "apply-patch", "workspace-write-fail-closed", "jerboa-read", "jerboa-read-configured", "jerboa-writers", "jerboa-matrix-probe", "jerboa-all", "openai-docs"} else "NESTED_TOOL_RESULT_OK"
             if len(returned_calls) != 1 or output_marker not in json.dumps(returned_calls[0].get("output", "")):
                 actual_outputs = [call.get("output") for call in returned_calls]
                 raise AssertionError(
