@@ -64,10 +64,15 @@ by the runtime owner.
 
 The standalone `request_user_input` app-server test also passed against the
 installed CLI. It used an isolated Plan-mode thread and a local Responses stub:
-the app-server emitted the exact blocking question, the harness returned the
-simulated `Pass` answer, and the follow-up model request contained that answer.
-No live model request or human prompt was used. The sanitized result is retained
-at `~/work/codex-runtime-repro/installed-final-suite/request-user-input.log`.
+the app-server emitted the exact blocking question and options, the harness
+returned the simulated `Pass` answer, and the follow-up Responses request
+contained one `function_call_output` correlated to the exact tool call with the
+parsed answer payload. The matching `turn/completed` notification had status
+`completed`. No live model request or human prompt was used. The runner's
+`--self-test` rejects missing/wrong call IDs, a prompt-only option-label match,
+wrong answers, altered questions, and failed/interrupted turn status. The
+sanitized result is retained at
+`~/work/codex-runtime-repro/installed-final-suite/request-user-input.log`.
 
 ## Runtime and package checks
 
@@ -385,7 +390,8 @@ request (custom Code Mode output is not an app-server ThreadItem). The app-
 server cases exercise host startup with fixed code, exact `ALL_TOOLS` nested
 catalog, image decode, resource and template listing, resource reads, isolated
 goal lifecycle, Jerboa read and writer operations, the complete 51-tool
-Jerboa manifest, all five OpenAI docs tools, and missing-provider diagnostics.
+Jerboa manifest, all five OpenAI docs tools, missing-provider diagnostics, and
+`request_user_input` with its simulated answer round trip.
 Image requires an `imageView` item; MCP cases require exact raw call identity,
 status, and result payload; the broad Jerboa case also checks every argument,
 status, and fixture postcondition. Each case requires terminal turn status

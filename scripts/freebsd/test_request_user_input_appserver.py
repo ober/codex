@@ -73,9 +73,116 @@ def final_response() -> bytes:
 class Capture:
     def __init__(self) -> None:
         self.count = 0
-        self.answer_seen = False
+        self.followup_input: Any = None
         self.error: str | None = None
         self.lock = threading.Lock()
+
+
+def validate_question_request(params: dict[str, Any], thread_id: str, turn_id: str) -> None:
+    if params.get("threadId") != thread_id or params.get("turnId") != turn_id:
+        raise AssertionError("request_user_input was attributed to the wrong thread or turn")
+    if params.get("itemId") != "call-user-input-fixture" or params.get("isBlocking") is not True:
+        raise AssertionError("request_user_input call identity or blocking mode was unexpected")
+    expected_questions = [{
+        **QUESTION_ARGS["questions"][0],
+        # The request_user_input handler normalizes all option-backed
+        # questions to expose an explicit free-form "other" response.
+        "isOther": True,
+        "isSecret": False,
+    }]
+    if params.get("questions") != expected_questions:
+        raise AssertionError(
+            "request_user_input question/options did not match the fixture exactly: "
+            f"observed={json.dumps(params.get('questions'), sort_keys=True)}"
+        )
+
+
+def validate_round_trip_input(input_items: Any) -> None:
+    if not isinstance(input_items, list):
+        raise AssertionError("follow-up Responses request input was not an array")
+    outputs = [
+        item for item in input_items
+        if isinstance(item, dict)
+        and item.get("type") == "function_call_output"
+        and item.get("call_id") == "call-user-input-fixture"
+    ]
+    if len(outputs) != 1:
+        raise AssertionError(
+            "follow-up model request must contain exactly one function_call_output "
+            "correlated to call-user-input-fixture"
+        )
+    output_text = outputs[0].get("output")
+    if not isinstance(output_text, str):
+        raise AssertionError("correlated function_call_output did not contain text output")
+    try:
+        output = json.loads(output_text)
+    except json.JSONDecodeError as error:
+        raise AssertionError("correlated function_call_output was not serialized JSON") from error
+    expected = {"answers": {"freebsd_probe": {"answers": ["Pass"]}}}
+    if output != expected:
+        raise AssertionError("correlated function_call_output did not contain the exact simulated answer")
+
+
+def validate_completed_turn(notification: dict[str, Any], turn_id: str) -> None:
+    if notification.get("method") != "turn/completed":
+        raise AssertionError("request_user_input turn did not end with turn/completed")
+    turn = notification.get("params", {}).get("turn", {})
+    if turn.get("id") != turn_id:
+        raise AssertionError("terminal notification belonged to the wrong turn")
+    if turn.get("status") != "completed":
+        raise AssertionError(f"turn ended with status {turn.get('status')!r}, expected 'completed'")
+
+
+def self_test() -> int:
+    valid_params = {
+        "threadId": "thread-fixture",
+        "turnId": "turn-fixture",
+        "itemId": "call-user-input-fixture",
+        "isBlocking": True,
+        "questions": [{**QUESTION_ARGS["questions"][0], "isOther": True, "isSecret": False}],
+    }
+    validate_question_request(valid_params, "thread-fixture", "turn-fixture")
+    valid_input = [{
+        "type": "function_call_output",
+        "call_id": "call-user-input-fixture",
+        "output": json.dumps({"answers": {"freebsd_probe": {"answers": ["Pass"]}}}),
+    }]
+    validate_round_trip_input(valid_input)
+    validate_completed_turn({"method": "turn/completed", "params": {"turn": {"id": "turn-fixture", "status": "completed"}}}, "turn-fixture")
+
+    negative_cases = [
+        lambda: validate_question_request({**valid_params, "questions": []}, "thread-fixture", "turn-fixture"),
+        lambda: validate_question_request({
+            **valid_params,
+            "questions": [{**valid_params["questions"][0], "question": "different question"}],
+        }, "thread-fixture", "turn-fixture"),
+        lambda: validate_round_trip_input([]),
+        lambda: validate_round_trip_input([{
+            **valid_input[0],
+            "call_id": "wrong-call-id",
+        }]),
+        # The option label occurs in the original function-call arguments; it
+        # must not be accepted as evidence that the user response was forwarded.
+        lambda: validate_round_trip_input([{
+            **valid_input[0],
+            "type": "function_call",
+            "output": json.dumps(QUESTION_ARGS),
+        }]),
+        lambda: validate_round_trip_input([{
+            **valid_input[0],
+            "output": json.dumps({"answers": {"freebsd_probe": {"answers": ["Fail"]}}}),
+        }]),
+        lambda: validate_completed_turn({"method": "turn/completed", "params": {"turn": {"id": "turn-fixture", "status": "failed"}}}, "turn-fixture"),
+        lambda: validate_completed_turn({"method": "turn/completed", "params": {"turn": {"id": "turn-fixture", "status": "interrupted"}}}, "turn-fixture"),
+    ]
+    for index, negative_case in enumerate(negative_cases, start=1):
+        try:
+            negative_case()
+        except AssertionError:
+            continue
+        raise AssertionError(f"negative fixture case {index} was incorrectly accepted")
+    print("PASS request_user_input self-test: exact question, correlated answer, and completed-turn negatives rejected")
+    return 0
 
 
 def make_handler(capture: Capture) -> type[http.server.BaseHTTPRequestHandler]:
@@ -98,8 +205,7 @@ def make_handler(capture: Capture) -> type[http.server.BaseHTTPRequestHandler]:
                     capture.count += 1
                     request_number = capture.count
                     if request_number == 2:
-                        input_text = json.dumps(body.get("input", []), sort_keys=True)
-                        capture.answer_seen = "Pass" in input_text
+                        capture.followup_input = body.get("input", [])
                 payload = function_call_response() if request_number == 1 else final_response()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -128,7 +234,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--codex", type=Path, default=Path.home() / ".local/bin/codex-freebsd")
     parser.add_argument("--timeout", type=float, default=45)
+    parser.add_argument("--self-test", action="store_true", help="test exact question, answer, and completion assertions")
     args = parser.parse_args()
+    if args.self_test:
+        return self_test()
     if not args.codex.is_file() or not os.access(args.codex, os.X_OK):
         print(f"FAIL native Codex executable unavailable: {args.codex}")
         return 2
@@ -157,6 +266,8 @@ env_key = "OPENAI_API_KEY"
             environment["CODEX_HOME"] = str(home)
             environment["OPENAI_API_KEY"] = API_KEY
             environment.pop("OPENAI_BASE_URL", None)
+            environment.pop("CODEX_API_KEY", None)
+            environment.pop("CODEX_ACCESS_TOKEN", None)
             process = subprocess.Popen(
                 [str(args.codex), "app-server"],
                 stdin=subprocess.PIPE,
@@ -231,13 +342,7 @@ env_key = "OPENAI_API_KEY"
                     raise message
                 if message.get("method") == "item/tool/requestUserInput":
                     params = message.get("params", {})
-                    if params.get("threadId") != thread_id or params.get("turnId") != turn_id:
-                        raise AssertionError("request_user_input was attributed to the wrong thread or turn")
-                    if params.get("itemId") != "call-user-input-fixture" or params.get("isBlocking") is not True:
-                        raise AssertionError("request_user_input call identity or blocking mode was unexpected")
-                    questions = params.get("questions", [])
-                    if len(questions) != 1 or questions[0].get("id") != "freebsd_probe":
-                        raise AssertionError("request_user_input question did not match the fixture")
+                    validate_question_request(params, thread_id, turn_id)
                     process.stdin.write(json.dumps({
                         "jsonrpc": "2.0",
                         "id": message["id"],
@@ -248,6 +353,7 @@ env_key = "OPENAI_API_KEY"
                 elif message.get("method") == "turn/completed":
                     payload = message.get("params", {})
                     if payload.get("turn", {}).get("id") == turn_id:
+                        validate_completed_turn(message, turn_id)
                         saw_answer_result = True
                         break
                 elif message.get("method") == "error":
@@ -261,9 +367,12 @@ env_key = "OPENAI_API_KEY"
         with capture.lock:
             if capture.error:
                 raise RuntimeError(f"local Responses fixture failed: {capture.error}")
-            if capture.count != 2 or not capture.answer_seen:
-                raise AssertionError("local model did not receive the simulated answer on its follow-up turn")
-        print("PASS request_user_input app-server round trip: isolated Plan thread, exact question, simulated Pass answer, and model received answer")
+            if capture.count != 2:
+                raise AssertionError(f"expected exactly two local model requests, observed {capture.count}")
+            validate_round_trip_input(capture.followup_input)
+        if not saw_answer_result:
+            raise AssertionError("turn did not complete after the simulated user response")
+        print("PASS request_user_input app-server round trip: exact Plan question, correlated Pass answer, and completed turn")
         return 0
     except Exception as error:
         print(f"FAIL request_user_input app-server fixture: {type(error).__name__}: {error}")
