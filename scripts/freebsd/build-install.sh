@@ -5,6 +5,8 @@ set -eu
 REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 CODEX_RS="$REPO_ROOT/codex-rs"
 BIN_DIR=${CODEX_FREEBSD_BIN_DIR:-"$HOME/.local/bin"}
+mkdir -p "$BIN_DIR"
+BIN_DIR=$(CDPATH= cd -- "$BIN_DIR" && pwd -P)
 DEFAULT_CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-"$CODEX_RS/target"}
 CLI_TARGET_DIR=${CODEX_FREEBSD_CLI_TARGET_DIR:-"$DEFAULT_CARGO_TARGET_DIR"}
 # The source-built V8 crate has a separate cache so its native build does not

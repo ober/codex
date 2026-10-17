@@ -19,12 +19,14 @@ fi
 REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 INSTALLER="$REPO_ROOT/scripts/freebsd/build-install.sh"
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/codex-freebsd-install-test.XXXXXX")
+RELATIVE_BIN_DIR="target/codex-freebsd-relative-bin-$$"
 cleanup() {
 	if [ "${CODEX_FREEBSD_TEST_KEEP_TMP:-0}" = 1 ]; then
 		echo "fixture scratch retained at $TMP_ROOT" >&2
 	else
 		rm -rf "$TMP_ROOT"
 	fi
+	rm -rf "$REPO_ROOT/$RELATIVE_BIN_DIR"
 }
 trap cleanup EXIT
 trap 'exit 129' HUP
@@ -302,6 +304,19 @@ elfctl "$SUCCESS_BIN/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
 SOURCE_VERSION=$("$SOURCE_CLI" --version)
 INSTALLED_VERSION=$("$SUCCESS_BIN/codex-freebsd" --version)
 [ "$INSTALLED_VERSION" = "$SOURCE_VERSION" ]
+
+mkdir -p "$RELATIVE_BIN_DIR"
+printf '%s\n' 'linux-codex-sentinel' > "$RELATIVE_BIN_DIR/codex"
+if ! run_installer "$RELATIVE_BIN_DIR" relative-bin > "$TMP_ROOT/relative-bin.log" 2>&1; then
+	cat "$TMP_ROOT/relative-bin.log" >&2
+	echo "error: installer failed with a relative bin prefix" >&2
+	exit 1
+fi
+cmp -s "$RELATIVE_BIN_DIR/codex-freebsd" "$SOURCE_CLI"
+elfctl "$RELATIVE_BIN_DIR/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
+grep -q '^linux-codex-sentinel$' "$RELATIVE_BIN_DIR/codex"
+"$RELATIVE_BIN_DIR/codex-freebsd" --version | grep -q "$SOURCE_VERSION"
+echo "PASS install success: relative bin prefix is canonicalized before builds"
 
 SEPARATE_TARGET_BIN="$TMP_ROOT/separate-target-bin"
 mkdir -p "$SEPARATE_TARGET_BIN"
