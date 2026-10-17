@@ -62,6 +62,13 @@ Logs are retained under
 interactive TUI were separately confirmed against these same installed hashes
 by the runtime owner.
 
+The standalone `request_user_input` app-server test also passed against the
+installed CLI. It used an isolated Plan-mode thread and a local Responses stub:
+the app-server emitted the exact blocking question, the harness returned the
+simulated `Pass` answer, and the follow-up model request contained that answer.
+No live model request or human prompt was used. The sanitized result is retained
+at `~/work/codex-runtime-repro/installed-final-suite/request-user-input.log`.
+
 ## Runtime and package checks
 
 | Surface | Evidence required for pass | Current evidence |
