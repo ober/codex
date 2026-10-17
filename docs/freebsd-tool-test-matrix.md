@@ -63,20 +63,28 @@ Logs are retained under
 interactive TUI were separately confirmed against these same installed hashes
 by the runtime owner.
 
-The patched Jerboa provider is also installed side-by-side at
-`~/.local/lib/jerboa-mcp-freebsd/551c2a29e8c3880f4f10672e59e93b0bf0915114/`
-(staged `jmcp` SHA-256
-`3b076a9801ec066381d6add1ad68426c9ac3993de8507c887fb45510e628443a`). The
-active Jerboa server config points to this package and its matching runtime;
-the prior `~/.local/bin/jerboa` and `jmcp` remain unchanged, and the existing
-knowledge-data/repository settings were preserved. The installed native Codex
-ran the 60-call / 51-method scratch replay against that exact package. A
-configured read-only `jerboa_task_workflow_advisor` call returned a completed,
-non-error MCP payload. A production `jerboa_list_features` call returned a
-provider internal error from list-valued `implemented_in` metadata; this
-reproduced with both the old and staged provider, with no production write.
-The formatter/schema mismatch is documented in
-[`freebsd-jerboa-tool-inventory.md`](freebsd-jerboa-tool-inventory.md).
+The patched Jerboa provider is installed side-by-side at
+`~/.local/lib/jerboa-mcp-freebsd/69c6992b531ac213c7e0332708832c2cd50ae2e1/`
+(source commit `69c6992b531ac213c7e0332708832c2cd50ae2e1`, version 0.13.23,
+staged `jmcp` SHA-256
+`9d2602136b0ce71cd1a34bb6193ce0f86e36f8d034019f904a55443751580faf`). The
+package includes its matching runtime, Chez files, libraries, and licenses;
+its symlinks resolve inside the package. The active Jerboa server config points
+to this package and its matching runtime; the prior `~/.local/bin/jerboa` and
+`jmcp` remain unchanged, and the existing knowledge-data/repository settings
+were preserved. The installed native Codex scratch replay passed the 60-call /
+51-method suite against this exact package. A configured production-root
+read-only `jerboa_list_features` smoke also passed: four distinct correlated
+item IDs reached terminal `completed` with nonempty results; two returned one
+feature entry under `limit=1` and two returned no matching entries. The
+production catalog SHA-256 was unchanged before and after the calls
+(`fec1ae604d962d41bf1b90ea300e0cede6119676f88a3d622d328a89e190e9c9`). The
+formatter now accepts the legacy list and current string forms of
+`implemented_in` and returns a typed tool error for unsupported values. The
+scoped config backup is
+`~/.codex/config.toml.backup-jerboa-mcp-20261017T014929Z` (mode 0600); only the
+Jerboa command and its matching `JERBOA_HOME` / `JERBOA_MCP_JERBOA_PATH` values
+changed.
 
 The standalone `request_user_input` app-server test also passed against the
 installed CLI. It used an isolated Plan-mode thread and a local Responses stub:
@@ -342,8 +350,8 @@ jerboa
 
 The initial `jerboa_list_features` call stopped at code-mode host startup.
 After the helper was built, the strict `jerboa-all` replay passed all 51
-methods in 60 calls, including on final candidate CLI `39d6558e…7112cd` and
-patched provider `3b076a98…e628443a`. Separately,
+methods in 60 calls on installed CLI `39d6558e…7112cd` and the final patched
+provider `9d260213…1580faf`. Separately,
 `scripts/freebsd/test_jerboa_scratch.py` passed against the native Jerboa server:
 `initialize` and `tools/list` returned 51 tools using protocol 2025-03-26, and
 six writer APIs completed actual write/readback checks under a newly created
