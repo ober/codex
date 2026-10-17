@@ -20,15 +20,15 @@ jobs:
     # signal without putting PR latency back on the critical path. When
     # Code-mode unit tests run on every Bazel target. When authenticated RBE
     # is available, the Windows-cross shards exercise the source-built V8 path.
-    timeout-minutes: 30
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
     strategy:
       fail-fast: false
       matrix:
         include:
           # macOS
-          - os: macos-15-xlarge
+          - os: macos-15
             target: aarch64-apple-darwin
-          - os: macos-15-xlarge
+          - os: macos-15
             target: x86_64-apple-darwin
 
           # Linux
@@ -43,7 +43,9 @@ jobs:
           # - os: ubuntu-24.04-arm
           #   target: aarch64-unknown-linux-gnu
 
-    runs-on: ${{ matrix.os }}
+    # Use private larger runners only for trusted upstream work. Fork PRs use
+    # standard hosted runners so they do not depend on private runner groups.
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.os == 'macos-15' && 'macos-15-xlarge' || matrix.os }}
 
     # Configure a human readable name for each job
     name: Bazel test on ${{ matrix.os }} for ${{ matrix.target }}
@@ -150,10 +152,10 @@ jobs:
           - 2
           - 3
           - 4
-    runs-on:
-      group: ${{ github.event.repository.name }}-runners
-      labels: ${{ github.event.repository.name }}-windows-x64
-    name: Bazel test on windows-latest for x86_64-pc-windows-gnullvm shard ${{ matrix.shard }}/4
+    # GitHub-hosted Windows is the fork fallback; trusted upstream runs keep
+    # using the repository's private Windows pool.
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('{"group":"codex-runners","labels":"codex-windows-x64"}') || 'windows-2025' }}
+    name: Bazel test on windows-2025 for x86_64-pc-windows-gnullvm shard ${{ matrix.shard }}/4
     environment:
       name: bazel
       deployment: false
@@ -339,7 +341,7 @@ jobs:
         uses: ./.github/actions/check-clean-worktree
 
   clippy:
-    timeout-minutes: 30
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
     strategy:
       fail-fast: false
       matrix:
@@ -350,14 +352,15 @@ jobs:
           # that the Bazel test job uses.
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-          - os: macos-15-xlarge
+          - os: macos-15
+            private_runner: macos-15-xlarge
             target: aarch64-apple-darwin
-          - os: windows-latest
+          - os: windows-2025
             target: x86_64-pc-windows-gnullvm
             runs_on:
               group: ${{ github.event.repository.name }}-runners
               labels: ${{ github.event.repository.name }}-windows-x64
-    runs-on: ${{ matrix.runs_on || matrix.os }}
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (matrix.runs_on || matrix.private_runner) || matrix.os }}
     name: Bazel clippy on ${{ matrix.os }} for ${{ matrix.target }}
     environment:
       name: bazel
@@ -450,21 +453,22 @@ jobs:
         uses: ./.github/actions/check-clean-worktree
 
   verify-release-build:
-    timeout-minutes: 30
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-          - os: macos-15-xlarge
+          - os: macos-15
+            private_runner: macos-15-xlarge
             target: aarch64-apple-darwin
-          - os: windows-latest
+          - os: windows-2025
             target: x86_64-pc-windows-gnullvm
             runs_on:
               group: ${{ github.event.repository.name }}-runners
               labels: ${{ github.event.repository.name }}-windows-x64
-    runs-on: ${{ matrix.runs_on || matrix.os }}
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (matrix.runs_on || matrix.private_runner) || matrix.os }}
     name: Verify release build on ${{ matrix.os }} for ${{ matrix.target }}
     environment:
       name: bazel
