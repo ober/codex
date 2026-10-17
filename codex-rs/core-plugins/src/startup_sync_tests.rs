@@ -1231,6 +1231,43 @@ async fn sync_openai_plugins_repo_via_http_cleans_up_staged_dir_on_extract_failu
     assert!(!has_plugins_clone_dirs(tmp.path()));
 }
 
+#[cfg(unix)]
+#[test]
+fn extract_zipball_strips_privileged_permission_bits() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = tempdir().expect("tempdir");
+    let destination = tmp.path().join("extracted");
+    let mut writer = ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    writer
+        .start_file(
+            "repo/payload.txt",
+            SimpleFileOptions::default().unix_permissions(0o755),
+        )
+        .expect("start payload entry");
+    writer.write_all(b"payload").expect("write payload");
+    let mut archive = writer.finish().expect("finish archive").into_inner();
+
+    // Inject the special bits into the Unix mode in the central directory.
+    // The normal writer API intentionally masks these bits, so patch the
+    // archive bytes to exercise attacker-controlled external attributes.
+    let central_directory = archive
+        .windows(4)
+        .rposition(|signature| signature == b"PK\x01\x02")
+        .expect("central directory entry");
+    let mode_offset = central_directory + 38;
+    archive[mode_offset..mode_offset + 4].copy_from_slice(&(0o107755_u32 << 16).to_le_bytes());
+
+    extract_zipball_to_dir(&archive, &destination).expect("extract archive");
+    let permissions = std::fs::metadata(destination.join("payload.txt"))
+        .expect("extracted payload")
+        .permissions()
+        .mode();
+
+    assert_eq!(permissions & 0o777, 0o755);
+    assert_eq!(permissions & 0o7000, 0);
+}
+
 #[tokio::test]
 async fn sync_openai_plugins_repo_skips_archive_download_when_sha_matches() {
     let tmp = tempdir().expect("tempdir");
