@@ -2,11 +2,11 @@
 
 ### System requirements
 
-| Requirement                 | Details                                                         |
-| --------------------------- | --------------------------------------------------------------- |
+| Requirement                 | Details                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------- |
 | Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, FreeBSD 15+, or Windows 11 **via WSL2** |
-| Git (optional, recommended) | 2.23+ for built-in PR helpers                                   |
-| RAM                         | 4-GB minimum (8-GB recommended)                                 |
+| Git (optional, recommended) | 2.23+ for built-in PR helpers                                                |
+| RAM                         | 4-GB minimum (8-GB recommended)                                              |
 
 FreeBSD source builds target `x86_64-unknown-freebsd`. Install Rust/Cargo, a C compiler, `cmake`, `pkgconf`, Git, Python, and `protobuf` (`protoc`) from the host package manager. The workspace pins Rust 1.95.0, while the native FreeBSD build exercised here uses Rust/Cargo 1.98.1; the minimum Rust version for the V8 source build has not been established. Its helper passes the active native Rust compiler's sysroot to GN for V8's Rust glue instead of downloading Chromium's Linux Rust toolchain. The code-mode host also needs native FreeBSD `gn` (2345), `ninja` (1.13.2), and LLVM 22 (22.1.8, including `libclang`); the helper uses the system `protoc`, so set `PROTOC` when it is not on `PATH`.
 
