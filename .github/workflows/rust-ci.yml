@@ -164,7 +164,7 @@ jobs:
   argument_comment_lint_prebuilt:
     name: Argument comment lint - ${{ matrix.name }}
     runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (matrix.runs_on || matrix.private_runner) || matrix.runner }}
-    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.timeout_minutes || (matrix.runner == 'ubuntu-24.04' && 120 || matrix.timeout_minutes) }}
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.timeout_minutes || ((matrix.runner == 'ubuntu-24.04' || matrix.runner == 'macos-15' || matrix.runner == 'windows-2025') && 120 || matrix.timeout_minutes) }}
     needs: changed
     environment:
       name: bazel
