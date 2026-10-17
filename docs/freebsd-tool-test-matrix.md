@@ -83,13 +83,18 @@ its symlinks resolve inside the package. The active Jerboa server config points
 to this package and its matching runtime; the prior `~/.local/bin/jerboa` and
 `jmcp` remain unchanged, and the existing knowledge-data/repository settings
 were preserved. The installed native Codex scratch replay passed the 60-call /
-51-method suite against this exact package. On the earlier installed Codex
-pair, a configured production-root read-only `jerboa_list_features` smoke
-passed four correlated calls and left the catalog hash unchanged. A rerun on
-the latest `abe2be90` CLI did not produce a matching MCP call (despite exit 0);
-the data tree remained unchanged at 12 files and SHA-256
-`0565d597eea6a469066eb28e25730ad3d54f6fdb8fdc0f4a35f0a2444a1eb4b7`. It is
-not counted as a pass for the latest binary. The
+51-method suite against this exact package. The final installed pair also
+passed a configured production-root read-only `jerboa_list_features` smoke:
+one correlated completed call returned nonempty content, with only that tool
+enabled and no `features_path` override. The production data tree remained
+unchanged at 12 files (SHA-256
+`2e31c058bc0cafb52d23545b3bbc37071e7c6e6bbe13e624baf2588c5b6ed07c`). The
+test used the exact versioned provider package and an isolated Codex home/cache;
+its sanitized evidence is
+`~/work/codex-runtime-repro/installed-final-suite-abe2be90/jerboa-configured-read-final.jsonl`.
+Earlier diagnostic harness attempts that emitted no MCP call are retained as
+non-passing historical attempts; the final deterministic case verifies the
+actual app-server item and result. The
 formatter now accepts the legacy list and current string forms of
 `implemented_in` and returns a typed tool error for unsupported values. The
 scoped config backup is
