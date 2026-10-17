@@ -1,0 +1,509 @@
+{
+  "server": "/home/user/work/jerboa-dtrace-baseline-host/jmcp",
+  "tool_count": 51,
+  "tested_nonwriter_count": 45,
+  "writer_harness_tools": [
+    "jerboa_anti_pattern_add",
+    "jerboa_error_fix_add",
+    "jerboa_howto_add",
+    "jerboa_security_pattern_add",
+    "jerboa_suggest_feature",
+    "jerboa_vote_feature"
+  ],
+  "scratch_root": "/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac",
+  "results": [
+    {
+      "tool": "jerboa_eval",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Result: 3"
+    },
+    {
+      "tool": "jerboa_check_syntax",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Syntax is valid."
+    },
+    {
+      "tool": "jerboa_compile_check",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "No errors found in code."
+    },
+    {
+      "tool": "jerboa_verify",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss: No issues found."
+    },
+    {
+      "tool": "jerboa_module_exports",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Module (std sort)\nSource: /home/user/work/jerboa-dtrace-baseline-host/lib/std/sort.ss\nexports 6 symbol(s):\n\n  list-sort\n  list-sort!\n  sort\n  sort!\n  stable-sort\n  stable-sort!"
+    },
+    {
+      "tool": "jerboa_module_exists",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Module (std sort)\nexists: true\npath: /home/user/work/jerboa-dtrace-baseline-host/lib/std/sort.ss\nother_matches:\n  /home/user/work/jerboa-dtrace-baseline-host/lib/std/sort.so"
+    },
+    {
+      "tool": "jerboa_function_signature",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "sort: arity mask 4\nKind: procedure\nAccepted arity: 2\nModule: (jerboa prelude)\nSource: /home/user/work/jerboa-dtrace-baseline-host/lib/jerboa/prelude.ss\nExample: (sort '(3 1 2) <)"
+    },
+    {
+      "tool": "jerboa_apropos",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Apropos batch in (jerboa prelude)\n\nPattern: sort\n  symbol | kind | arity | module\n  --- | --- | --- | ---\n  list-sort! | proc | 4 | (jerboa prelude)\n  sort | proc | 4 | (jerboa prelude)\n  sort! | proc | 4 | (jerboa prelude)\n  stable-sort | proc | 4 | (jerboa prelude)\n  stable-sort! | proc | 4 | (jerboa prelude)\n  alist->sorted-map | index | - | (std ds sorted-map)\n  dataframe-sort | index | - | (std dataframe)\n  dep-graph-topo-sort | index | - | (std build watch)\n  heap->sorted-list | index | - | (std misc heap)\n  list-sort | index | - | (std srfi srfi-132)\n  list-sorted? | index | - | (std srfi srfi-132)\n  list-stable-sort | index | - | (std srfi srfi-132)\n  make-sorted-map | index | - | (std ds sorted-map)\n  relation-sort | index | - | (std misc relation)\n  seq-sort | index | - | (jerboa clojure), (std clojure seq)\n  seq-sort-by | index | - | (jerboa clojure), (std clojure seq)\n  sort-applicable-methods | index | - | (std clos)\n  sorted-map->alist | index | - | (std ds sorted-map)\n  "
+    },
+    {
+      "tool": "jerboa_howto",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Found 2 recipe(s) for \"scratch fixture\":\n\n  typed-llvmir-all-fixture-leak-suite - Run strict Typed LLVM IR leak checks for every executable fixture\n    tags: typed, llvmir, leak-check, suite, allocator, makefile\n\n  codex-freebsd-tool-positive-recipe - Bounded positive howto-get fixture\n    tags: scratch"
+    },
+    {
+      "tool": "jerboa_howto_get",
+      "ok": true,
+      "classification": "expected-blocker",
+      "expected_isError": true,
+      "isError": true,
+      "rpc_error": null,
+      "required_text": "Recipe not found:",
+      "text": "Recipe not found: __scratch_missing_recipe__"
+    },
+    {
+      "tool": "jerboa_howto_get",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": "codex-freebsd-tool-positive-recipe",
+      "text": "## Bounded positive howto-get fixture\nID: codex-freebsd-tool-positive-recipe\nTags: scratch\nImports: \n```scheme\n(+ 1 2)\n```\nTemporary fixture only."
+    },
+    {
+      "tool": "jerboa_cookbook_task_bundle",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Cookbook task bundle\nTask: inspect fixture\n\nNo matching cookbook recipes were found. Use jerboa_request_advisor, jerboa_stdlib_search, jerboa_module_exports, and jerboa_function_signature to derive the implementation, then save the discovered pattern with jerboa_howto_add.\n\nGeneric workflow:\n1. Read the target files and project layout before editing.\n2. Use the recipe imports, API names, and code shape as verified examples; do not copy unrelated logic blindly.\n3. Confirm unfamiliar APIs with jerboa_module_exports or jerboa_function_signature.\n4. Write the smallest complete artifact that should pass the verifier.\n5. Run the recommended verifier, then broaden to focused repo tests only if needed.\n6. If verification fails, call jerboa_failure_advisor with the exact verifier output before the next edit.\n7. Save a non-trivial new working pattern with jerboa_howto_add.\n\nVerify plan:\n- Shell verify: jerboa /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\n- MCP v"
+    },
+    {
+      "tool": "jerboa_request_advisor",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa request advisor\nTask: inspect fixture\nKind: script\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nRecommended jcode verify: jerboa /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nRecommended write scope: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nMCP verify tool: jerboa_verify {\"file_path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\", \"project_path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\"} for syntax/expand sanity only; final authority is the runnable verify command/tests with required args/stdin\n\nFirst actions:\n- Read or create one complete .ss script; avoid partial snippets.\n- Use `(import (jerboa prelude))` unless a specific recipe says otherwise.\n- Run the configured verify command/tests immediately after the first complete version; "
+    },
+    {
+      "tool": "jerboa_verify_plan",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa verify plan\nTask: inspect fixture\nKind: script\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nRecommended shell verify: jerboa /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nRecommended jcode flags: --verify 'jerboa /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss' --write-scope /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nMCP verify tool: jerboa_verify {\"file_path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\", \"project_path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\"} for syntax/expand sanity only; final authority is the runnable verify command/tests with required args/stdin\n\nRationale:\n- Standalone scripts should be executed, not only syntax-checked.\n- If the task requires visible behavior, make the script pr"
+    },
+    {
+      "tool": "jerboa_failure_advisor",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa failure advisor\nDiagnosis: unbound-identifier\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nRecommended repair move: edit-import-or-definition\nAdvice: Confirm the symbol exists and which module exports it; import the module or define the missing helper.\n\nNext MCP tools:\n- jerboa_suggest_imports\n- jerboa_module_exports\n- jerboa_symbol_exists_batch\n\nAnti-patterns:\n- Do not keep broad-reading when the verifier names a concrete error.\n- Do not make random paren pokes; replace the balanced/enclosing span.\n- Do not declare success until the same verifier command passes.\n\nVerifier excerpt:\n```\nunbound identifier\n```"
+    },
+    {
+      "tool": "jerboa_anti_pattern_lookup",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa anti-pattern lookup\nTask: scratch\nKind: code\nSource: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/anti-patterns.sexp\nMatches: 0\n\n- Do not guess imports or SRFI availability; confirm modules or use a recipe.\n- Do not use Gerbil commands or assumptions for Jerboa tasks.\n- Do not declare success before a verifier or focused command passes.\n- Do not keep broad-reading after an error identifies a concrete span."
+    },
+    {
+      "tool": "jerboa_security_scan",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Security scan: no findings in 1 scanned file(s)."
+    },
+    {
+      "tool": "jerboa_run_tests",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Test run: 1/1 passed\n\nPASS /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/scratch-test.ss"
+    },
+    {
+      "tool": "jerboa_make",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "make test output:\n\nPASS scratch-make\n\nJERBOA-MCP-COMPLETION-STATUS: completed\nJERBOA-MCP-EXIT-STATUS: 0\nJERBOA-MCP-OUTPUT-TAIL:\nPASS scratch-make"
+    },
+    {
+      "tool": "jerboa_test_baseline_diff",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Test baseline diff for make test\nBaseline: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/baseline.txt\nCurrent failures: 0\nBaseline failures: 0\nUnchanged failing: 0\nFixed: 0\nNew failures: 0\nNEW: (none)\nFIXED: (none)\nObserved passes: 1"
+    },
+    {
+      "tool": "jerboa_release_evidence_status",
+      "ok": true,
+      "classification": "expected-blocker",
+      "expected_isError": true,
+      "isError": true,
+      "rpc_error": null,
+      "required_text": "Overall readiness: not-ready",
+      "text": "Release evidence status summary\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nEvidence: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence\nOverall readiness: not-ready\nStaleness: fresh\n\nEvidence files:\n- overall: missing ((missing))\n- reproducibility: missing ((missing))\n- sbom: missing ((missing))\n- soak: missing ((missing))\n- signing: missing ((missing))\n- binary-smoke: missing ((missing))\n- rustsec: missing ((missing))"
+    },
+    {
+      "tool": "jerboa_release_evidence_status",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": "Overall readiness: ready",
+      "text": "Release evidence status summary\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nEvidence: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready\nOverall readiness: ready\nStaleness: fresh\n\nEvidence files:\n- overall: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/result.txt)\n- reproducibility: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/reproducibility/result.txt)\n- sbom: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/sbom/status.txt)\n- soak: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/soak/status.txt)\n- signing: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/signing/status.txt)\n- binary-smoke: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence-ready/binary-smoke.txt)\n- rustsec"
+    },
+    {
+      "tool": "jerboa_release_evidence_toolchain_staleness",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Release evidence toolchain staleness\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nCore: /home/user/work/jerboa-dtrace-baseline-host\nSelected toolchain: PATH /home/user/.local/bin/jerbuild\nToolchain version: jerbuild (jerboa multicall, bundled-lib sha256=f145d94621480ea877852313816598cc796c8aa86b2b27e88cb45225d40a26c1)\nStatus: warn\nIssues: core-newer-than-toolchain\n\nDirty core files:\n(none)\n\nCore files newer than toolchain:\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/parallel.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/regex-ct-impl.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/runtime/gc.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/pregexp.sls\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/amb.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/safe.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/peg.ss\n/home/user/work/jerboa-dtrace-baseline-host/lib/std/clojure.ss\n/home/user/work/jerboa-dtrace-baseline-h"
+    },
+    {
+      "tool": "jerboa_target_proof_marker_verifier",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Target proof marker verifier validation: pass\nProof specs: 1\nTest checklist:\n- missing optional proof writes status=not-run and exits 0\n- missing required proof writes status=blocked-missing and exits 1\n- empty proof writes status=blocked-missing and exits 1\n- incomplete proof writes status=blocked-marker-missing plus missing_marker= lines and exits 1\n- valid proof copies proof, emits proof-status.txt, and writes sha256\n- oversized proof writes status=blocked-oversized and exits 1\n- private path or sensitive material writes status=blocked-sensitive-material and exits 1\n\nDocs marker block:\n<!-- jerboa-target-proof-markers: begin -->\nDeclare proofFileEnv, requireEnv, and requiredMarkers under policy.releaseEvidence. Required proofs must fail closed; optional proofs must write explicit not-run evidence.\n<!-- jerboa-target-proof-markers: end -->"
+    },
+    {
+      "tool": "jerboa_release_evidence_privacy_audit",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Release evidence privacy audit\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nDirectories: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/release-evidence\nFiles scanned: 1\nFindings: 0\nResult: pass"
+    },
+    {
+      "tool": "jerboa_cross_repo_release_evidence_matrix",
+      "ok": true,
+      "classification": "expected-blocker",
+      "expected_isError": true,
+      "isError": true,
+      "rpc_error": null,
+      "required_text": "target-missing",
+      "text": "Cross-repo release evidence matrix\nRepos: 1\n\nrepo | target | evidence | security.json | status\n--- | --- | --- | --- | ---\nproject | missing | target-missing | missing | target-missing\n\n```json\n{\"gates\":[\"target\",\"evidence\",\"security.json\"],\"repos\":[{\"security_gates\":[],\"release_evidence_target\":false,\"summary\":\"\",\"status\":\"target-missing\",\"path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\",\"name\":\"project\",\"evidence_dir\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/dist/release-evidence\"}]}\n```"
+    },
+    {
+      "tool": "jerboa_cross_repo_release_evidence_matrix",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": "jerboa-release-pass | present | pass | present | pass",
+      "text": "Cross-repo release evidence matrix\nRepos: 1\n\nrepo | target | evidence | security.json | status\n--- | --- | --- | --- | ---\njerboa-release-pass | present | pass | present | pass\n\n```json\n{\"gates\":[\"target\",\"evidence\",\"security.json\"],\"repos\":[{\"security_gates\":[\"smoke\"],\"release_evidence_target\":[\"release-evidence\"],\"summary\":\"Release evidence status summary\\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/release-matrix-workspace/jerboa-release-pass\\nEvidence: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/release-matrix-workspace/jerboa-release-pass/dist/release-evidence\\nOverall readiness: ready\\nStaleness: fresh\\n\\nEvidence files:\\n- overall: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/release-matrix-workspace/jerboa-release-pass/dist/release-evidence/result.txt)\\n- reproducibility: pass (/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/release-matrix-workspace/jerboa-release-pass/dist/release-evidence/reproducibility/result.txt"
+    },
+    {
+      "tool": "jerboa_security_profile",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Security Profile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nProfile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/data/security-profile.sexp\nRepo: (unspecified)\nVersion: 1\n\nPath classes:\n  production: 0\n  tests: 0\n  generated: 0\n  vendor: 0\n  docs: 0\n  unknown: 0"
+    },
+    {
+      "tool": "jerboa_read_source",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Read source: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nLines 1-3 of 3\n\n```scheme\n(import (jerboa prelude))\n\n(define (fixture-add x y) (+ x y))\n```\n... (0 more line(s); use start_line/end_line to narrow or continue from line 4)."
+    },
+    {
+      "tool": "jerboa_source_form_spans",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Source form spans\n\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nform start_line=3 end_line=4 top_level=true balanced=true swallowing=false text=(define (fixture-add x y) (+ x y)) replace_range={\"file_path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\",\"start_line\":3,\"end_line\":4}"
+    },
+    {
+      "tool": "jerboa_repo_snapshot",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa repo snapshot\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nTarget: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/snapshot\nMode: copied\nCopied file count: 4\nSource file count: 4\nSkipped artifact count: 0\nSkipped artifact examples: (none)\nSnapshot method: tracked source file copy; build artifacts excluded by git ls-files/source filter.\nMode normalization: copied targets are chmod u+rwX,go-rwx."
+    },
+    {
+      "tool": "jerboa_generated_sls_source_layout_audit",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Generated SLS source layout audit OK\nTracked files: 4\nChecked roots: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/lib, /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/build"
+    },
+    {
+      "tool": "jerboa_fleet_security_scan",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Fleet security scan\nRepos: 1\n\nrule-id | severity | repos-affected | total-sites\n--- | --- | --- | ---\n(none)\n\n## project\nPath: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nSecurity findings: none\n\nMake targets for project: missing lint, security, verify\nSuggestions: lint->(none), security->(none), verify->test\nStatus: branch=master dirty=0 untracked=4 stale=0\n\n```json\n{\"totals\":[],\"repos\":[{\"error\":false,\"findings_by_severity\":{},\"path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\",\"name\":\"project\",\"repo_status\":{\"origin\":\"error: No such remote 'origin'\\n\\nJERBOA-MCP-EXIT-STATUS: 2\",\"last_commit\":\"c6300f3 2026-10-16 fixture\",\"branch\":\"master\",\"path\":\"/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\",\"untracked\":4,\"health\":\"dirty=0 untracked=4 stale=0\",\"dirty_tracked\":0,\"make_targets\":[\"test\"],\"stale\":0,\"name\":\"project\"},\"scan_text\":\"Security scan: no findings in 6 scanned file(s).\",\"make_target_audit\":{\"missing\":[\"lint\",\"security"
+    },
+    {
+      "tool": "jerboa_check_balance",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Balance OK."
+    },
+    {
+      "tool": "jerboa_balanced_replace",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Balanced replace OK in /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/mutable.ss (written)."
+    },
+    {
+      "tool": "jerboa_balanced_insert",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Balanced insert OK in /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/insert.ss (written)."
+    },
+    {
+      "tool": "jerboa_error_fix_lookup",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "No known fix for this error. Try jerboa_explain_error for detailed analysis."
+    },
+    {
+      "tool": "jerboa_explain_error",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Error type: Unbound Identifier\n\nLikely cause: A symbol is missing an import, misspelled, or out of scope.\n\nSuggested tools:\n  - jerboa_error_fix_lookup\n  - jerboa_function_signature\n  - jerboa_suggest_imports\n"
+    },
+    {
+      "tool": "jerboa_invalid_context_definition_diagnoser",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Invalid context definition diagnosis\n\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nReported line: 1\nLikely enclosing top-level form starts at line 1: (import (jerboa prelude))\nNested definition detected at line 1: (import (jerboa prelude))\nSuspected repair span: 1..1\nBalanced form currently closes near line 2\nSuggested replace_range: file_path=/home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss start_line=1 end_line=1 replacement=<rewrite enclosing form so internal definitions come first or close before the nested def>"
+    },
+    {
+      "tool": "jerboa_repair_error",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Jerboa repair error\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\n\nDiagnosis:\nError type: Unbound Identifier\n\nLikely cause: A symbol is missing an import, misspelled, or out of scope.\n\nSuggested tools:\n  - jerboa_error_fix_lookup\n  - jerboa_function_signature\n  - jerboa_suggest_imports\n\n\nKnown fix lookup:\nNo cataloged fix matched this exact error.\n\nRepair guidance:\nJerboa failure advisor\nDiagnosis: unbound-identifier\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\nRecommended repair move: edit-import-or-definition\nAdvice: Confirm the symbol exists and which module exports it; import the module or define the missing helper.\n\nNext MCP tools:\n- jerboa_suggest_imports\n- jerboa_module_exports\n- jerboa_symbol_exists_batch\n\nAnti-patterns:\n- Do not keep broad-reading when"
+    },
+    {
+      "tool": "jerboa_list_features",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "No feature suggestions found."
+    },
+    {
+      "tool": "jerboa_task_workflow_advisor",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Workflow advisor\nKind: code\nProject: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/src/fixture.ss\n\nBaseline for constrained local models:\n1. Call jerboa_request_advisor or jerboa_task_workflow_advisor with the user task.\n2. Call jerboa_cookbook_task_bundle or jerboa_howto before writing Jerboa code.\n3. Confirm unknown APIs with jerboa_module_exports or jerboa_function_signature.\n4. Write the smallest complete .ss file or patch.\n5. Call jerboa_verify on changed .ss code, then jerboa_security_scan for file/process/FFI code.\n6. Run the exact command or focused tests. If it fails, call jerboa_explain_error or jerboa_error_fix_lookup before editing again.\n\nRecommended next tool calls:\n1. jerboa_cookbook_task_bundle {\"task\":\"<user task>\", \"max_recipes\":5}\n2. jerboa_howto {\"query\":\"<main API or task>\", \"compact\":true} if the bundle misses the key API.\n3. jerboa_module_exports for unfamiliar modules; jerb"
+    },
+    {
+      "tool": "jerboa_compact_tool_manifest",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Compact Jerboa MCP manifest for constrained local models\n\nCall order:\n1. advisor -> howto -> signatures/exports -> edit/write -> verify -> run tests/command -> save discovery.\n2. If a command fails, explain_error/error_fix_lookup before another edit.\n3. Use dispatcher `jerboa` search/describe only when the direct tool is not visible.\n4. If the client reports Transport closed, retry with a fresh local stdio jmcp process: pipe one JSON-RPC tools/call line to <repo>/dist/jmcp or <repo>/jmcp. jmcp syncs MCP data from jerboa-mcp-data to ~/.jmap on startup; set JERBOA_MCP_DATA_DIR for an explicit data checkout.\n\nCore tools:\nt:6ab8qf request_advisor(project_path?, symbols?, file_path?, imports?, extra_libdirs?, max_recipes?, max_anti_patterns?, task?, anti_patterns_path?, query?, description?, cookbook_path?) - Return a compact preflight battle card with verify advice, write scope, cookbook candidates, ...\n    when: preflight battle card for a task\nt:mt0ynq verify_plan(project_path?, task?, f"
+    },
+    {
+      "tool": "jerboa_script_scaffold_verify",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": "Expected match: yes",
+      "text": "Script scaffold\nKind: echo-args\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/generated.ss\nWrite: written\nVerify: PASS\nVerify detail: code: No issues found.\nNext action: do not call write/edit for this file; run the command below.\nRun output: scratch-ok\nExpected output: scratch-ok\nExpected match: yes\n\nUse this command shape:\n/home/user/work/jerboa-dtrace-baseline-host/bin/jerboa run /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/generated.ss scratch-ok\n\nCode: omitted because the file was written; pass include_code=true to inspect it.\n\nNotes:\n- The script runs at top level; it does not rely on a `main` binding.\n- The args normalizer supports both `jerboa run file.ss ...` and wrappers that include file.ss as argv[0]."
+    },
+    {
+      "tool": "jerboa_script_scaffold_verify",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": "Expected match: yes",
+      "text": "Script scaffold\nKind: count-args\nFile: /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/count-args.ss\nWrite: written\nVerify: PASS\nVerify detail: code: No issues found.\nNext action: do not call write/edit for this file; run the command below.\nRun output: 0\nExpected output: 0\nExpected match: yes\n\nUse this command shape:\n/home/user/work/jerboa-dtrace-baseline-host/bin/jerboa run /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/count-args.ss\n\nCode: omitted because the file was written; pass include_code=true to inspect it.\n\nNotes:\n- The script runs at top level; it does not rely on a `main` binding.\n- The args normalizer supports both `jerboa run file.ss ...` and wrappers that include file.ss as argv[0]."
+    },
+    {
+      "tool": "jerboa_prompt_to_code",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "jerboa_prompt_to_code verified in iteration 1.\nTranscript:\niteration 1: PASS\n\nCode:\n```scheme\n(import (jerboa prelude))\n\n(define (fixture-identity x) x)\n```"
+    },
+    {
+      "tool": "jerboa_write_file",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Wrote /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/written.ss\nBytes: 55 (new file)"
+    },
+    {
+      "tool": "jerboa_repair_balance",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Repair plan for /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/repair.ss:\n- drop 0 unexpected closer(s)\n- append 2 missing closer(s) at EOF: ))\n- top-level forms: 1 -> 1\n- suggested balanced edit: use jerboa_balanced_replace on the enclosing top-level form when the plan points at swallowed code or a non-local delimiter error.\n\n\nAction hints:\n- unclosed ( at 1:20: the form opened at line 1 may swallow following code; use jerboa_balanced_replace on the enclosing top-level span or run jerboa_repair_balance.\n- unclosed ( at 1:1: the form opened at line 1 may swallow following code; use jerboa_balanced_replace on the enclosing top-level span or run jerboa_repair_balance.\n- post-repair balance: OK\n\nIf this plan looks wrong, restore with `git checkout -- /home/user/work/codex-freebsd-jerboa-nonwriters-4af_sxac/project/repair.ss` and redo the edit with jerboa_balanced_insert.\n\nApplied: repaired file written atomically."
+    },
+    {
+      "tool": "jerboa",
+      "ok": true,
+      "classification": "pass",
+      "expected_isError": false,
+      "isError": false,
+      "rpc_error": null,
+      "required_text": null,
+      "text": "Tool catalog t:ccfsbk query=\"howto cookbook\"\nShowing 3 of 9 tool(s), page 1. Invoke by id or name; use tool=\"describe\" for full schema.\n\nt:wdxxwo howto(compact?, query!, max_results?) - Search curated Jerboa recipes by keyword.\nt:k8qswg howto_add(imports?, title!, code!, id!, notes?, cookbook_path?, tags?) - Add or update a cookbook recipe.\nt:k8qxzb howto_get(id!) - Fetch a single cookbook recipe by ID."
+    }
+  ],
+  "known_provider_findings": [],
+  "post_status": "pass",
+  "failures": []
+}

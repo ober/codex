@@ -211,9 +211,21 @@ fn deny_read_preserves_the_sandbox_for_explicit_escalation_and_blocks_policy_byp
     );
     assert!(!unsandboxed_execution_allowed(&file_system_policy));
     assert!(matches!(
-        ensure_native_sandbox(SandboxOverride::EscalatedSandboxWithRestrictions, SandboxType::None),
+        ensure_native_sandbox(
+            SandboxOverride::EscalatedSandboxWithRestrictions,
+            SandboxType::None,
+            true,
+        ),
         Err(ToolError::Rejected(reason)) if reason.contains("requires an available filesystem sandbox"),
     ));
+    assert!(matches!(
+        ensure_native_sandbox(SandboxOverride::NoOverride, SandboxType::None, true),
+        Err(ToolError::Rejected(reason)) if reason.contains("filesystem sandbox cannot be enforced"),
+    ));
+    assert!(ensure_native_sandbox(SandboxOverride::NoOverride, SandboxType::None, false).is_ok());
+    assert!(
+        ensure_native_sandbox(SandboxOverride::NoOverride, SandboxType::LinuxSeccomp, true).is_ok()
+    );
     assert_eq!(
         sandbox_permissions_preserving_denied_reads(
             SandboxPermissions::RequireEscalated,

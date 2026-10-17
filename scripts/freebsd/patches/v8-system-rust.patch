@@ -1,0 +1,17 @@
+--- build.rs.orig
++++ build.rs
+@@ -390,1 +390,13 @@
+-  download_rust_toolchain();
++  if env::var_os("RUSTY_V8_SKIP_RUST_TOOLCHAIN_DOWNLOAD").is_some() {
++    assert_eq!(
++      env::var("CARGO_CFG_TARGET_OS").as_deref(),
++      Ok("freebsd"),
++      "RUSTY_V8_USE_SYSTEM_RUST is only supported for a FreeBSD target"
++    );
++    assert!(
++      env::var("GN_ARGS").is_ok_and(|args| args.contains("rust_sysroot_absolute=")),
++      "skipping Chromium Rust toolchain download requires GN_ARGS to set rust_sysroot_absolute"
++    );
++  } else {
++    download_rust_toolchain();
++  }

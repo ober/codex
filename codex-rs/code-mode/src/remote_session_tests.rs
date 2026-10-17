@@ -21,6 +21,19 @@ fn provider_reuses_its_live_process_host() {
 }
 
 #[test]
+fn missing_host_availability_error_explains_how_to_fix_the_install() {
+    let host_program = PathBuf::from("codex-code-mode-host-does-not-exist");
+    let provider = ProcessOwnedCodeModeSessionProvider::with_host_program(host_program.clone());
+
+    let error = provider
+        .availability()
+        .expect_err("missing host should make code mode unavailable");
+
+    assert!(error.contains(&host_program.display().to_string()));
+    assert!(error.contains("build and install the matching code-mode host beside the Codex executable"));
+}
+
+#[test]
 fn missing_host_error_limits_the_displayed_path_to_512_bytes() {
     let executable = "codex-code-mode-host-does-not-exist";
     let host_program = format!("{}{executable}", "missing-directory/".repeat(/*n*/ 64));
