@@ -22,6 +22,19 @@ scripts/freebsd/build-install.sh
 "$HOME/.local/bin/codex-freebsd" --version
 ```
 
+Launch the native FreeBSD CLI with an unrestricted sandbox mode:
+
+```sh
+"$HOME/.local/bin/codex-freebsd" --sandbox danger-full-access --model gpt-5.6-sol
+```
+
+FreeBSD has no sandbox backend in this release, so restricted modes fail closed;
+use `danger-full-access` when you want the CLI to run tools. `gpt-5.6-sol` was
+verified with the account used for the native runtime tests, but model
+availability is account-specific; choose a model available to your account.
+This command names `codex-freebsd` explicitly and does not change the existing
+`codex` command or its Linux installation. No `--no-daemon` option is needed.
+
 The build helper builds the CLI and its V8-backed code-mode host, verifies that
 both outputs are native FreeBSD amd64 ELF binaries, and installs them as
 `codex-freebsd` and `codex-code-mode-host-freebsd`. It marks only the V8 host
