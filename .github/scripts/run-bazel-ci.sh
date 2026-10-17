@@ -7,6 +7,7 @@ print_failed_bazel_action_summary=0
 remote_download_toplevel=0
 windows_msvc_host_platform=0
 windows_cross_compile=0
+windows_local_cross_fallback=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -256,10 +257,11 @@ if [[ ${#bazel_args[@]} -eq 0 || ${#bazel_targets[@]} -eq 0 ]]; then
 fi
 
 if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" ]]; then
-  # Windows cross-compilation depends on authenticated RBE. Preserve the local
-  # Windows build shape when credentials are unavailable.
-  ci_config=ci-windows
+  # Keep the non-remote Windows settings while the BuildBuddy wrapper removes
+  # ci-windows-cross from keyless invocations.
+  ci_config=ci-windows-cross-local
   windows_msvc_host_platform=1
+  windows_local_cross_fallback=1
 fi
 
 post_config_bazel_args=()
@@ -307,14 +309,19 @@ if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -n "${BUI
   # Bazel also derives the default genrule shell from the client host. Without
   # an explicit shell executable, remote Linux actions can be asked to run
   # `C:\Program Files\Git\usr\bin\bash.exe`.
-  post_config_bazel_args+=(--host_platform=//:rbe --shell_executable=/bin/bash)
+  post_config_bazel_args+=(
+    --host_platform=//:rbe
+    --shell_executable=/bin/bash
+    --platforms=//:windows_x86_64_gnullvm
+  )
 fi
 
 if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" ]]; then
-  # The Windows cross-compile config depends on authenticated remote
-  # execution. When credentials are unavailable, keep the local build shape
-  # and its lower concurrency cap.
-  post_config_bazel_args+=(--jobs=8)
+  # Keep the target explicit after Windows platform-specific rc expansion.
+  post_config_bazel_args+=(
+    "--platforms=//:windows_x86_64_gnullvm"
+    "--jobs=8"
+  )
 fi
 
 if [[ -n "${BAZEL_REPO_CONTENTS_CACHE:-}" ]]; then
@@ -396,6 +403,9 @@ bazel_run_args=(
 )
 if [[ -n "${BUILDBUDDY_API_KEY:-}" ]]; then
   echo "BuildBuddy API key is available; using remote Bazel configuration."
+  bazel_run_args+=("--config=${ci_config}")
+elif [[ $windows_local_cross_fallback -eq 1 ]]; then
+  echo "BuildBuddy API key is not available; using the local Windows GNU cross configuration."
   bazel_run_args+=("--config=${ci_config}")
 else
   echo "BuildBuddy API key is not available; using local Bazel configuration."

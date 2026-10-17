@@ -8,9 +8,15 @@ import unittest
 
 
 SCRIPT = Path(__file__).with_name("run-bazel-ci.sh")
+BAZELRC = SCRIPT.parents[2] / ".bazelrc"
 
 
 class RunBazelPkgconfFallbackTests(unittest.TestCase):
+    def assert_final_target_platform(self, args: list[str]) -> None:
+        target_platforms = [arg for arg in args if arg.startswith("--platforms=")]
+        self.assertTrue(target_platforms)
+        self.assertEqual(target_platforms[-1], "--platforms=//:windows_x86_64_gnullvm")
+
     def invoke_with_stub(self, *, api_key: str = "", repository: str = "") -> list[str]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -53,6 +59,29 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
     def test_fallback_injects_only_the_pkgconf_provider(self):
         args = self.invoke_with_stub(repository="C:/runner/temp/voice-windows-pkgconf")
 
+        self.assertIn("--config=ci-windows-cross-local", args)
+        self.assertIn("--host_platform=//:local_windows_msvc", args)
+        self.assert_final_target_platform(args)
+        self.assertNotIn("--config=ci-windows", args)
+        self.assertNotIn("--config=ci-windows-cross", args)
+        self.assertNotIn("--host_platform=//:rbe", args)
+        self.assertNotIn(
+            "--extra_execution_platforms=//:rbe,//:windows_x86_64_msvc", args
+        )
+        local_config = [
+            line
+            for line in BAZELRC.read_text(encoding="utf-8").splitlines()
+            if line.startswith("common:ci-windows-cross-local ")
+        ]
+        self.assertIn(
+            "common:ci-windows-cross-local --extra_execution_platforms=//:windows_x86_64_msvc",
+            local_config,
+        )
+        self.assertIn(
+            "common:ci-windows-cross-local --extra_toolchains=//:windows_gnullvm_tests_on_msvc_host_toolchain",
+            local_config,
+        )
+        self.assertFalse(any("//:rbe" in line for line in local_config))
         self.assertIn(
             "--inject_repository=voice_windows_pkgconf=C:/runner/temp/voice-windows-pkgconf",
             args,
@@ -66,6 +95,14 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
         self.assertNotIn("--repo_env=BAZEL_MSVC_RUNTIME_VISUAL_STUDIO_EULA=1", args)
 
     @unittest.skipIf(os.name == "nt", "The shell wrapper test requires Bash")
+    def test_fallback_without_pkgconf_keeps_target_configuration(self):
+        args = self.invoke_with_stub()
+
+        self.assertIn("--config=ci-windows-cross-local", args)
+        self.assert_final_target_platform(args)
+        self.assertNotIn("--//third_party/voice:windows_pkgconf_only=true", args)
+
+    @unittest.skipIf(os.name == "nt", "The shell wrapper test requires Bash")
     def test_remote_execution_does_not_select_pkgconf_only_provider(self):
         args = self.invoke_with_stub(
             api_key="test-placeholder",
@@ -77,6 +114,9 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
             "--//third_party/voice:windows_installed_pkgconf=@voice_windows_pkgconf//:pkgconf_files",
             args,
         )
+        self.assertIn("--config=ci-windows-cross", args)
+        self.assert_final_target_platform(args)
+        self.assertIn("--host_platform=//:rbe", args)
 
 
 if __name__ == "__main__":

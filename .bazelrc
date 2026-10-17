@@ -211,6 +211,19 @@ common:ci-windows-cross --platforms=//:windows_x86_64_gnullvm
 common:ci-windows-cross --extra_execution_platforms=//:rbe,//:windows_x86_64_msvc
 common:ci-windows-cross --extra_toolchains=//:windows_gnullvm_tests_on_msvc_host_toolchain
 
+# Fork-safe local Windows GNU cross build; intentionally contains no RBE
+# endpoint or remote execution platform.
+common:ci-windows-cross-local --config=ci-windows
+common:ci-windows-cross-local --build_metadata=TAG_windows_cross_compile=true
+common:ci-windows-cross-local --strategy=TestRunner=local
+common:ci-windows-cross-local --strategy=V8Mksnapshot=local
+common:ci-windows-cross-local --local_test_jobs=8
+common:ci-windows-cross-local --test_env=RUST_TEST_THREADS=1
+common:ci-windows-cross-local --test_env=CODEX_BAZEL_TEST_SKIP_FILTERS=command_safety::powershell_parser::tests::,suite::code_mode::code_mode_can_call_hidden_dynamic_tools,tests::windows_tests::conpty_ctrl_c_interrupts_powershell_foreground_child
+common:ci-windows-cross-local --platforms=//:windows_x86_64_gnullvm
+common:ci-windows-cross-local --extra_execution_platforms=//:windows_x86_64_msvc
+common:ci-windows-cross-local --extra_toolchains=//:windows_gnullvm_tests_on_msvc_host_toolchain
+
 # Linux-only V8 CI config.
 common:ci-v8 --config=ci
 common:ci-v8 --build_metadata=TAG_workflow=v8
