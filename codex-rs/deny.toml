@@ -155,6 +155,9 @@ confidence-threshold = 0.8
 exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
+    # zip 9's default bzip2 backend uses this permissive license; retain its
+    # notice and attribution requirements while allowing only this crate version.
+    { allow = ["bzip2-1.0.6"], crate = "libbz2-rs-sys@0.2.5" },
     #{ allow = ["Zlib"], crate = "adler32" },
 ]
 
