@@ -42,17 +42,37 @@ hashes above and supported model `gpt-5.6-sol`. The candidate CLI includes the
 fail-closed sandbox guard; the explicit restricted-sandbox and JSONL builtin
 gates are recorded in their own rows below.
 
+## Installed suffix-pair verification
+
+After installation, `/home/user/.local/bin/codex-freebsd` was verified as
+FreeBSD 15.1 amd64 ELF, SHA-256
+`39d6558efeedf33b9fb47f5d01224dfe11554ea13978aaa86e921192127112cd`; its
+sibling `/home/user/.local/bin/codex-code-mode-host-freebsd` has SHA-256
+`78a00118cec9406d4a8bc0452389726678ba54c476bc396b47b029cd76a4a247` and
+`wxneeded` set. The Linux `~/.local/bin/codex` remains SHA-256
+`399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`.
+
+The installed CLI passed the app-server catalog, image decode, resource and
+template listing, resource read, goal lifecycle, agent schemas/lifecycle,
+`apply_patch`, and workspace-write fail-closed cases. The strict Jerboa replay
+passed all 60 calls across 51 unique tools against the patched scratch provider;
+all five OpenAI Developer Docs tools also passed through native Code Mode.
+Logs are retained under
+`~/work/codex-runtime-repro/installed-final-suite/`. Direct host IPC and the
+interactive TUI were separately confirmed against these same installed hashes
+by the runtime owner.
+
 ## Runtime and package checks
 
 | Surface | Evidence required for pass | Current evidence |
 | --- | --- | --- |
-| Native executable identity | `file` identifies FreeBSD ELF; `--version` exits 0 | Pass: `/home/user/.local/bin/codex-freebsd`, FreeBSD 15.1 x86_64 ELF; `codex-cli 0.0.0`; SHA-256 `05b345f185c1f7b81aac3253fa3fb2cc0f94af6eb68e5efd5a1be6c521acb8fd` at inspection time |
-| Side-by-side install | Inspect both command paths; run the harness with its explicit native path | `~/.local/bin/codex` remains a symlink to `~/.codex/packages/standalone/current/bin/codex`; `~/.local/bin/codex-freebsd` is a separate FreeBSD ELF. Harness `--codex` defaults to the latter; no install path was modified |
+| Native executable identity | `file` identifies FreeBSD ELF; `--version` exits 0 | Pass after final installation: `/home/user/.local/bin/codex-freebsd`, FreeBSD 15.1 x86_64 ELF; SHA-256 `39d6558efeedf33b9fb47f5d01224dfe11554ea13978aaa86e921192127112cd`; `--version` succeeded |
+| Side-by-side install | Inspect both command paths; run the harness with its explicit native path | `~/.local/bin/codex` remains the separate SYSV static-pie Linux binary at SHA-256 `399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`; `~/.local/bin/codex-freebsd` and its suffixed helper are installed FreeBSD ELFs. |
 | Native test PATH helpers | Resolve each external command and inspect its ELF format | The inherited PATH resolves `codex` to the preserved Linux symlink and `rg` first to the app-server daemon's Linux static-pie binary; `/usr/local/bin/rg`, `git`, `python3`, `bash`, `cargo`, `file`, and `timeout` are FreeBSD binaries. `jmcp` resolves to the native FreeBSD Jerboa executable. The native app-server harness now prepends a private per-run directory linking `codex` to its explicit FreeBSD test binary and `rg` to `/usr/local/bin/rg`, then searches FreeBSD system directories and `~/.local/bin`; no global PATH or Linux install was changed. |
 | Per-binary W^X metadata | Inspect native CLI and matching helper with `elfctl` and ELF program headers; then run actual code-mode/JIT smoke | CLI `wxneeded` unset and `GNU_STACK` is RW; final helper `wxneeded` set. Native direct IPC and bounded hot-function stress/checksum completed with the helper. The process W^X status is recorded separately; global `kern.elf64.allow_wx=1` was observed without modification |
 | MCP configuration discovery | `codex-freebsd mcp list` exits 0 and reports configured/enabled state | Pass: `jerboa`, `jerbsearch`, `kagi`, `llm_search`, and `openaiDeveloperDocs` enabled; `gerbil` disabled. Auth status was `Unsupported` for configured servers |
 | App-server catalog surface | Initialize app-server and start an ephemeral thread; inspect returned fields for actual tool schemas | Native app-server initialize returned `userAgent`, `codexHome`, `platformFamily`, and `platformOs`; `thread/start` returned thread/model/provider/workspace/approval config, but no tool names or schemas. The local Responses recorder captured the later model request schema; no external model was used |
-| Helper executable lookup | Installed and relocated binary selects the correct adjacent or package-resource helper; helper executes and completes a code-mode cell | Staged final pair resolves the suffixed sibling and passed direct IPC and app-server tests. The older installed `~/.local/bin/codex-freebsd` remains unchanged and still lacks its suffixed helper |
+| Helper executable lookup | Installed and relocated binary selects the correct adjacent or package-resource helper; helper executes and completes a code-mode cell | The installed final pair resolves its suffixed sibling and passed direct IPC and app-server tests. Earlier missing-companion checks used a separate staged copy |
 | Model/API reachability | One native model request completes using an explicitly supported model | Pass on final candidate CLI `39d6558e…7112cd`: supported `gpt-5.6-sol` reached the service and live TUI PTY verified a completed command event plus exact scratch file |
 | Default sandbox behavior | Invoke `exec` without `--sandbox`; report either a completed harmless command or a direct fail-closed sandbox error, never infer the outcome from prose | Final exec-JSONL smoke reported `LIMITATION`: the native router logger recorded `filesystem sandbox cannot be enforced on this host`, the command did not execute, and the marker was absent. The runner does not count the assistant message as successful execution |
 | Explicit workspace-write sandbox | Attempt a unique scratch marker write with `--sandbox workspace-write`; require direct `filesystem sandbox cannot be enforced` failure evidence and no completed command item or marker | Final exec-JSONL smoke reported the same `LIMITATION`, with the router logger recording the exact rejection, no command execution, and no marker. A deterministic app-server nested `exec_command` probe also returned the correlated error and confirmed marker absence |
@@ -65,9 +85,9 @@ The nested-catalog fixture requires these exact 15 names to be present in
 `update_goal`, `view_image`, `write_stdin`, and the five `multi_agent_v1__*`
 operations (`close_agent`, `resume_agent`, `send_input`, `spawn_agent`, and
 `wait_agent`). This is an asserted expectation,
-The helper-backed catalog passed against the staged final pair. The harness
-prints the observed names only after the native Code Mode result reaches the
-local model stub.
+The helper-backed catalog passed against both the staged candidate and the
+installed final pair. The harness prints the observed names only after the
+native Code Mode result reaches the local model stub.
 
 The command record from the first native MCP attempt is:
 
@@ -134,7 +154,8 @@ raw app-server MCP events with exact tool names/arguments/results plus the
 validated output in the next model request. The first native run against the
 installed older CLI failed as expected because no MCP calls were emitted
 (0 of 5 raw events); this rejected a model-only claim of success. A later run
-against the staged final pair passed five raw Code Mode MCP calls. The test
+against the staged candidate passed five raw Code Mode MCP calls; the installed
+final pair also passed all five. The test
 does not edit `~/.codex` or require an API key for the model stub; do not count
 provider-level success as Codex dispatch success.
 
@@ -147,8 +168,8 @@ not its configured shell wrapper, to avoid starting its unrelated daemon. No
 tool schemas or calls were available for those missing executables. `gerbil`
 is disabled and `/home/user/.local/bin/gerbil-mcp` is also absent; it was not
 started. Therefore, an “all configured MCP tools” pass is not currently
-possible even after the Code Mode helper works: these three enabled server
-dependencies first need to exist and advertise their actual schemas.
+possible: these three enabled server dependencies first need to exist and
+advertise their actual schemas.
 
 Read-only dependency/source inspection found these likely reasons for the
 missing local programs: `jerbsearch` is configured to execute a frontend name
@@ -364,8 +385,9 @@ status, and fixture postcondition. Each case requires terminal turn status
 `completed` and verifies the actual Code Mode result in the next request
 received by the local model stub. A local self-test rejects failed, interrupted,
 missing-status, wrong-ID, and wrong-method terminal notifications. No assistant
-prose marker alone counts as evidence. The staged final pair passed the
-catalog, image/resources/goals, agent, Jerboa and OpenAI Docs dispatch cases.
+prose marker alone counts as evidence. The staged candidate passed the
+catalog, image/resources/goals, agent, Jerboa and OpenAI Docs dispatch cases;
+the installed final pair has now passed these app-server cases as well.
 The app-server assertion self-test passed. Its `host-smoke` and image cases were run against the
 freshly built renamed native CLI with no sibling host; both rejected the fixed
 expected result. The next actual model request contained the exact
@@ -408,9 +430,10 @@ does not validate tool dispatch or the code-mode host's runtime API catalog.
 The final candidate pair and its successful dispatch tests are recorded at the
 top of this matrix.
 
-The installed native `~/.local/bin/codex-freebsd` is still the older artifact
-with SHA-256 `05b345f185c1f7b81aac3253fa3fb2cc0f94af6eb68e5efd5a1be6c521acb8fd`;
-the staged CLI at `codex-rs/target/release/codex` has SHA-256
+Before final installation, the installed native `~/.local/bin/codex-freebsd`
+was the older artifact with SHA-256
+`05b345f185c1f7b81aac3253fa3fb2cc0f94af6eb68e5efd5a1be6c521acb8fd`; the
+staged CLI at `codex-rs/target/release/codex` had SHA-256
 `97b8a9a2a6f0890b0229f3fcff58b4f2f1ef33f438faaa3f9f33fad2d17ed09b`. The matching native host build target is `codex-rs/target/release/codex-code-mode-host`
 with SHA-256 `78a00118cec9406d4a8bc0452389726678ba54c476bc396b47b029cd76a4a247`.
 The Linux default `~/.local/bin/codex` remains the
