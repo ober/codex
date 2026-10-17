@@ -23,6 +23,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from test_jerboa_nonwriters import (
     McpClient,
@@ -295,6 +296,16 @@ def main() -> int:
         "--codex", type=Path, default=Path.home() / ".local/bin/codex-freebsd"
     )
     parser.add_argument(
+        "--kagi-server",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "CODEX_TEST_KAGI_SERVER", "/home/user/.local/bin/kagi-mcp-token"
+            )
+        ),
+        help="stdio wrapper executable for the optional real Kagi integration case",
+    )
+    parser.add_argument(
         "--case",
         choices=(
             "host-smoke",
@@ -313,6 +324,7 @@ def main() -> int:
             "jerboa-writers",
             "jerboa-matrix-probe",
             "jerboa-all",
+            "kagi-search",
             "openai-docs",
             "mcp-missing-provider",
         ),
@@ -563,6 +575,16 @@ def main() -> int:
                 "jerboaMatrixProbe",
                 "MATRIX_MISSING_TARGET_RESULT",
             )
+        elif args.case == "kagi-search":
+            kagi_args = {"query": "OpenAI Codex GitHub repository", "limit": 3}
+            code = (
+                'const hit = ALL_TOOLS.find(x => x.name === "mcp__kagi__kagi_search_fetch"); '
+                'if (!hit) throw new Error("enabled Kagi search tool is absent"); '
+                f"const args = {json.dumps(kagi_args, separators=(',', ':'))}; "
+                "const result = await tools[hit.name](args); "
+                'text("KAGI_SEARCH_RESULT:" + JSON.stringify({name:hit.name,args,result}));'
+            )
+            expected_kind, expected_marker = "kagiSearch", "KAGI_SEARCH_RESULT"
         elif args.case == "openai-docs":
             remote_cases = [
                 {
@@ -973,6 +995,21 @@ def main() -> int:
                     'url = "https://developers.openai.com/mcp"\n'
                     'default_tools_approval_mode = "approve"\n'
                     'enabled_tools = ["search_openai_docs", "list_openai_docs", "fetch_openai_doc", "list_api_endpoints", "get_openapi_spec"]\n'
+                )
+            if args.case == "kagi-search":
+                if not args.kagi_server.is_file() or not os.access(
+                    args.kagi_server, os.X_OK
+                ):
+                    raise RuntimeError(
+                        f"Kagi wrapper executable unavailable: {args.kagi_server}"
+                    )
+                config += (
+                    "\n[mcp_servers.kagi]\n"
+                    f"command = {json.dumps(str(args.kagi_server.resolve()))}\n"
+                    'default_tools_approval_mode = "approve"\n'
+                    'enabled_tools = ["kagi_search_fetch"]\n'
+                    "[mcp_servers.kagi.tools.kagi_search_fetch]\n"
+                    'approval_mode = "approve"\n'
                 )
             missing_provider = (
                 root / "absent-provider" / "codex-freebsd-missing-mcp-provider"
@@ -1410,6 +1447,75 @@ def main() -> int:
                 print(
                     f"REPRODUCED native MCP adapter failure: {item['server']}/{item['tool']}: {error}"
                 )
+            if expected_kind == "kagiSearch":
+                expected_args = {
+                    "query": "OpenAI Codex GitHub repository",
+                    "limit": 3,
+                }
+                matches = [
+                    event.get("params", {}).get("item", {})
+                    for event in observed
+                    if event.get("params", {}).get("item", {}).get("type")
+                    == "mcpToolCall"
+                    and event.get("params", {}).get("item", {}).get("server") == "kagi"
+                    and event.get("params", {}).get("item", {}).get("tool")
+                    == "kagi_search_fetch"
+                    and event.get("params", {}).get("item", {}).get("status")
+                    in {"completed", "failed"}
+                ]
+                if len(matches) != 1:
+                    raise AssertionError(
+                        f"expected one terminal correlated Kagi tool event, observed {len(matches)}"
+                    )
+                item = matches[0]
+                if item.get("status") != "completed" or not isinstance(
+                    item.get("result"), dict
+                ):
+                    raise AssertionError(
+                        "Kagi search did not complete with an MCP result"
+                    )
+                if item.get("arguments") != expected_args:
+                    raise AssertionError(
+                        "Kagi search event did not preserve the exact bounded query arguments"
+                    )
+                result = item["result"]
+                if result.get("isError") is True:
+                    raise AssertionError("Kagi search result isError=true")
+                content = result.get("content")
+                if not isinstance(content, list) or not content:
+                    raise AssertionError("Kagi search returned no content blocks")
+                text_blocks = [
+                    block.get("text", "")
+                    for block in content
+                    if isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and isinstance(block.get("text"), str)
+                ]
+                urls = sorted(
+                    {
+                        match.rstrip(".,;:]")
+                        for block in text_blocks
+                        for match in re.findall(r"https?://[^\s<>\"']+", block)
+                    }
+                )
+                valid_urls = []
+                for url in urls:
+                    parsed = urlsplit(url)
+                    if parsed.scheme in {"http", "https"} and parsed.hostname:
+                        valid_urls.append(url)
+                if not any(block.strip() for block in text_blocks) or not valid_urls:
+                    raise AssertionError(
+                        "Kagi search returned no nonempty text with a valid source URL"
+                    )
+                print(
+                    "NATIVE_KAGI_SEARCH: one completed kagi_search_fetch call; "
+                    f"query={expected_args['query']!r}; limit=3; "
+                    f"mcp_item_id={item.get('id')!r}; "
+                    f"nonempty_text_blocks={sum(bool(text.strip()) for text in text_blocks)}; "
+                    f"validated_source_urls={len(valid_urls)}; "
+                    f"source_hosts={sorted({urlsplit(url).hostname for url in valid_urls})}; "
+                    f"source_urls={valid_urls}"
+                )
             if expected_kind == "jerboaMcpCalls":
                 expected_counts = {
                     "jerboa_howto_add": 1,
@@ -1810,6 +1916,7 @@ def main() -> int:
                     "jerboa-writers",
                     "jerboa-matrix-probe",
                     "jerboa-all",
+                    "kagi-search",
                     "openai-docs",
                 }
                 else "NESTED_TOOL_RESULT_OK"
