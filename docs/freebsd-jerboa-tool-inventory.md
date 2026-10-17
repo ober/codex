@@ -2,7 +2,34 @@
 
 This file is a sanitized inventory of the live Jerboa `tools/list` schema queried on the native FreeBSD host. It distinguishes provider-level calls from Codex dispatch. The configured server originally reported `readOnlyHint=false` and `idempotentHint=false` for every tool, so the risk classes below are conservative name/description/schema-based triage, not trusted MCP annotations.
 
-The configured server schema contained 51 tools. Final end-to-end tests used the patched native FreeBSD provider artifact `/home/user/work/jerboa-dtrace-baseline-host/jmcp` (SHA-256 `3b076a9801ec066381d6add1ad68426c9ac3993de8507c887fb45510e628443a`) with its matching worktree home and CLI, and the final candidate Codex pair (CLI SHA-256 `39d6558efeedf33b9fb47f5d01224dfe11554ea13978aaa86e921192127112cd`, helper SHA-256 `78a00118cec9406d4a8bc0452389726678ba54c476bc396b47b029cd76a4a247`). `scripts/freebsd/test_code_mode_appserver.py --case jerboa-all` passed 60 actual native Code Mode MCP calls across all 51 unique names. It checks each raw app-server item, exact arguments, status and result, plus scratch fixture postconditions. Three calls deliberately returned the expected MCP `isError=true` validation results (missing recipe, incomplete release evidence and missing release-matrix target); all 51 methods also had a successful positive call. The direct-provider fixtures separately passed the six knowledge writer APIs with write/readback under temporary data roots, and all 45 nonwriter names. No user knowledge store was used. No response payloads or credentials are included.
+The configured server schema contained 51 tools. Final end-to-end tests used the patched native FreeBSD provider artifact `/home/user/work/jerboa-dtrace-baseline-host/jmcp` (SHA-256 `3b076a9801ec066381d6add1ad68426c9ac3993de8507c887fb45510e628443a`) with its matching worktree home and CLI, and the final candidate Codex pair (CLI SHA-256 `39d6558efeedf33b9fb47f5d01224dfe11554ea13978aaa86e921192127112cd`, helper SHA-256 `78a00118cec9406d4a8bc0452389726678ba54c476bc396b47b029cd76a4a247`). `scripts/freebsd/test_code_mode_appserver.py --case jerboa-all` passed 60 actual native Code Mode MCP calls across all 51 unique names. It checks each raw app-server item, exact arguments, status and result, plus scratch fixture postconditions. Three calls deliberately returned the expected MCP `isError=true` validation results (missing recipe, incomplete release evidence and missing release-matrix target); all 51 methods also had a successful positive call. The direct-provider fixtures separately passed the six knowledge writer APIs with write/readback under temporary data roots, and all 45 nonwriter names. No user knowledge store was used in those fixture runs. No response payloads or credentials are included.
+
+## Side-by-side installed provider and production-root smoke
+
+The patched provider was staged under
+`$HOME/.local/lib/jerboa-mcp-freebsd/551c2a29e8c3880f4f10672e59e93b0bf0915114/`
+as a self-contained package (37,513 KiB allocated). It contains the native
+FreeBSD `jmcp`, its matching `bin/jerboa`, Chez runtime, libraries, and license
+notices; its symlinks stay within the package. Native `ldd` resolved all
+dependencies for `jmcp` and the Scheme runtime. The staged `jmcp` SHA-256 is
+`3b076a9801ec066381d6add1ad68426c9ac3993de8507c887fb45510e628443a`.
+
+The installed native Codex scratch replay passed all 60 calls / 51 methods
+against this staged package, with writer arguments rooted in the harness's
+temporary fixture. The active MCP config now selects that versioned `jmcp`
+and supplies its matching `JERBOA_HOME` and `JERBOA_MCP_JERBOA_PATH`; the
+existing `JERBOA_MCP_DATA_DIR` and `JERBOA_MCP_REPO` values were preserved.
+The old `~/.local/bin/jerboa` and `~/.local/bin/jmcp` were not replaced. A
+configured native Codex read-only call to `jerboa_task_workflow_advisor`
+completed with a non-error result. A separate production-catalog read of
+`jerboa_list_features` failed with an internal provider error, and the same
+call against the same existing catalog failed with the previous installed
+provider as well. The observed catalog contains a list-valued
+`implemented_in` field, while `format-feature` concatenates that field as a
+string (`mcp/server.ss:9165-9166`). This is an existing data/schema
+compatibility defect, not evidence that the staged package caused it. The
+production catalog was only read, never written; the scratch replay remains
+the evidence for successful all-tool and writer behavior.
 
 The direct-provider fixture `scripts/freebsd/test_jerboa_nonwriters.py`
 completed 49 calls across all 45 nonwriter names in temporary project/data
@@ -60,7 +87,7 @@ Sanitized structured provider results are in
 | `jerboa_invalid_context_definition_diagnoser` | `error`, `line`, `file_path` | read / bounded analysis: Diagnose invalid-context-for-definition errors by locating the enclosing top-level form and suggested replace range. | Native provider fixture call succeeded; native Code Mode positive result verified in the 60-call suite. |
 | `jerboa_repair_error` | `file_path`, `error_message`, `project_path`, `message`, `verify_output` | read / bounded analysis: Classify an error, look up known fixes, and return one verification command. | Native provider fixture call succeeded; native Code Mode positive result verified in the 60-call suite. |
 | `jerboa_suggest_feature` | `implemented_tool`, `tags`, `example_scenario`, `use_case`, `estimated_token_reduction`, `id`, `description`, `status`, `title`, `impact`, `implemented_in`, `closed_reason`, `features_path` | durable knowledge / scratch-only test | Provider-level write/readback passed using an explicit temporary features file; native Code Mode positive result verified in the 60-call suite. |
-| `jerboa_list_features` | `jerboa_version`, `all`, `status`, `query`, `compact`, `features_path`, `limit` | read / bounded analysis: List or search feature suggestions. | Native provider fixture call succeeded; native Code Mode positive result verified in the 60-call suite. |
+| `jerboa_list_features` | `jerboa_version`, `all`, `status`, `query`, `compact`, `features_path`, `limit` | read / bounded analysis: List or search feature suggestions. | Native scratch provider and Code Mode calls passed. The production catalog read currently fails because a legacy `implemented_in` list reaches a formatter that expects a string; this reproduced with both old and staged providers, and production data was not changed. |
 | `jerboa_vote_feature` | `id`, `features_path` | durable knowledge / scratch-only test | Provider-level vote passed; counter persisted in temporary features file; native Code Mode positive result verified in the 60-call suite. |
 | `jerboa_task_workflow_advisor` | `description`, `query`, `file_path`, `task`, `project_path` | read / bounded analysis: Return a compact, task-specific MCP workflow for constrained local models. | Native provider fixture call succeeded; native Code Mode positive result verified in the 60-call suite. |
 | `jerboa_compact_tool_manifest` | `max_results`, `query` | read / bounded analysis: Return a small-context Jerboa MCP manifest with call order and high-value tools. | Native provider fixture call succeeded; native Code Mode positive result verified in the 60-call suite. |

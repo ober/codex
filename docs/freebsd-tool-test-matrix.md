@@ -30,8 +30,9 @@ all 51 Jerboa method names. The Jerboa case made 60 calls and checked exact raw
 MCP item identity, arguments, success/error status, result data, returned
 values, and fixture postconditions. Three deliberate validation probes
 returned normal `isError=true` MCP results. The patched Jerboa provider was
-explicitly selected from its scratch worktree; the user's global MCP config
-was not changed.
+explicitly selected from its scratch worktree for those fixture runs. A later
+side-by-side install and scoped Jerboa config override are recorded below; the
+Linux default Codex and old Jerboa binaries remain untouched.
 
 The final live TUI PTY run reached Code Mode and executed its scratch-file
 command successfully. The corrected runner waits for the typed marker to
@@ -61,6 +62,21 @@ Logs are retained under
 `~/work/codex-runtime-repro/installed-final-suite/`. Direct host IPC and the
 interactive TUI were separately confirmed against these same installed hashes
 by the runtime owner.
+
+The patched Jerboa provider is also installed side-by-side at
+`~/.local/lib/jerboa-mcp-freebsd/551c2a29e8c3880f4f10672e59e93b0bf0915114/`
+(staged `jmcp` SHA-256
+`3b076a9801ec066381d6add1ad68426c9ac3993de8507c887fb45510e628443a`). The
+active Jerboa server config points to this package and its matching runtime;
+the prior `~/.local/bin/jerboa` and `jmcp` remain unchanged, and the existing
+knowledge-data/repository settings were preserved. The installed native Codex
+ran the 60-call / 51-method scratch replay against that exact package. A
+configured read-only `jerboa_task_workflow_advisor` call returned a completed,
+non-error MCP payload. A production `jerboa_list_features` call returned a
+provider internal error from list-valued `implemented_in` metadata; this
+reproduced with both the old and staged provider, with no production write.
+The formatter/schema mismatch is documented in
+[`freebsd-jerboa-tool-inventory.md`](freebsd-jerboa-tool-inventory.md).
 
 The standalone `request_user_input` app-server test also passed against the
 installed CLI. It used an isolated Plan-mode thread and a local Responses stub:
@@ -171,11 +187,13 @@ final pair also passed all five. The test
 does not edit `~/.codex` or require an API key for the model stub; do not count
 provider-level success as Codex dispatch success.
 
-The enabled local servers `jerbsearch`, `kagi`, and `llm_search` remain
-unavailable: safe startup attempts failed with `FileNotFoundError` before MCP
-initialize because `/home/user/.local/bin/jerbsearch`,
-`/home/user/.local/bin/kagi-mcp-token`, and `/home/user/.local/bin/llm-search`
-are absent. The `llm_search` probe invoked the direct `llm-search mcp` command,
+The enabled local servers `jerbsearch`, `kagi`, and `llm_search` were
+unavailable in the initial inventory: safe startup attempts failed with
+`FileNotFoundError` before MCP initialize because
+`/home/user/.local/bin/jerbsearch`, `/home/user/.local/bin/kagi-mcp-token`,
+and `/home/user/.local/bin/llm-search` were absent. Jerbsearch has since been
+staged separately, but its configured invocation was not validated here. The
+`llm_search` probe invoked the direct `llm-search mcp` command,
 not its configured shell wrapper, to avoid starting its unrelated daemon. No
 tool schemas or calls were available for those missing executables. `gerbil`
 is disabled and `/home/user/.local/bin/gerbil-mcp` is also absent; it was not
@@ -189,9 +207,9 @@ different from the `~/mine/jerboa-websearch/bin/jerbsearch-mcp` launcher, and
 that launcher also requires a Chez Scheme runtime that is not installed;
 `llm-search` has a source checkout at `~/mine/jerboa-llm-search` but its native
 executable is absent; no local source checkout for the configured Kagi helper
-was found. These are environment/configuration findings only. No provider was
-built, installed, or enabled as part of this test, and no global MCP
-configuration was changed.
+was found. These are environment/configuration findings only. Jerbsearch and
+Jerboa are staged at side-by-side versioned paths; the default Linux Codex
+and existing Jerboa binaries were not replaced.
 
 For each row, append the timestamp, exact command or prompt, native tool name,
 result summary, exit status, and artifact path. Do not include secret-bearing
