@@ -360,9 +360,11 @@ The live schema capture is recorded one row per tool in
 schema evidence, provisional risk class, and call status. Tests use temporary
 config overrides that enable only the specific tool and set its approval mode
 explicitly; they do not change persistent `config.toml`. Other
-code-execution, build/test, repository, and file-mutation methods require
-isolated fixtures and are being exercised separately. The server's uniform
-false `readOnlyHint` annotations mean a tool name alone cannot establish safety.
+code-execution, build/test, repository, and file-mutation methods were exercised
+with isolated project/data fixtures in the 60-call replay. This verifies those
+methods against the fixture provider and does not make an unrestricted target
+safe. The server's uniform false `readOnlyHint` annotations mean a tool name
+alone cannot establish safety.
 
 ### Other configured MCP servers
 
