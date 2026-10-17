@@ -81,7 +81,25 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
             "common:ci-windows-cross-local --extra_toolchains=//:windows_gnullvm_tests_on_msvc_host_toolchain",
             local_config,
         )
+        self.assertIn(
+            "common:ci-windows-cross-local --config=ci-windows-msvc",
+            local_config,
+        )
         self.assertFalse(any("//:rbe" in line for line in local_config))
+        msvc_config = [
+            line
+            for line in BAZELRC.read_text(encoding="utf-8").splitlines()
+            if line.startswith("build:ci-windows-msvc ")
+        ]
+        self.assertTrue(
+            any(
+                "@local_config_cc//:cc-toolchain-x64_windows" in line
+                for line in msvc_config
+            )
+        )
+        self.assertFalse(
+            any("BAZEL_MSVC_RUNTIME_VISUAL_STUDIO_EULA" in line for line in msvc_config)
+        )
         self.assertIn(
             "--inject_repository=voice_windows_pkgconf=C:/runner/temp/voice-windows-pkgconf",
             args,

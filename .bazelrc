@@ -214,6 +214,7 @@ common:ci-windows-cross --extra_toolchains=//:windows_gnullvm_tests_on_msvc_host
 # Fork-safe local Windows GNU cross build; intentionally contains no RBE
 # endpoint or remote execution platform.
 common:ci-windows-cross-local --config=ci-windows
+common:ci-windows-cross-local --config=ci-windows-msvc
 common:ci-windows-cross-local --build_metadata=TAG_windows_cross_compile=true
 common:ci-windows-cross-local --strategy=TestRunner=local
 common:ci-windows-cross-local --strategy=V8Mksnapshot=local
