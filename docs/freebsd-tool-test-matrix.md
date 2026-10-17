@@ -123,7 +123,7 @@ sanitized result is retained at
 | Side-by-side install              | Inspect both command paths; run the harness with its explicit native path                                                                                                               | `~/.local/bin/codex` remains the separate SYSV static-pie Linux binary at SHA-256 `399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`; `~/.local/bin/codex-freebsd` and its suffixed helper are installed FreeBSD ELFs.                                                                                                                                                                                                                                                                                                                                   |
 | Native test PATH helpers          | Resolve each external command and inspect its ELF format                                                                                                                                | The inherited PATH resolves `codex` to the preserved Linux symlink and `rg` first to the app-server daemon's Linux static-pie binary; `/usr/local/bin/rg`, `git`, `python3`, `bash`, `cargo`, `file`, and `timeout` are FreeBSD binaries. `jmcp` resolves to the native FreeBSD Jerboa executable. The native app-server harness now prepends a private per-run directory linking `codex` to its explicit FreeBSD test binary and `rg` to `/usr/local/bin/rg`, then searches FreeBSD system directories and `~/.local/bin`; no global PATH or Linux install was changed. |
 | Per-binary W^X metadata           | Inspect native CLI and matching helper with `elfctl` and ELF program headers; run JIT-enabled V8 evaluation and bounded hot-function stress                                             | Latest CLI has `wxneeded` unset and `GNU_STACK` is RW; latest helper has `wxneeded` set. Native app-server host startup/evaluation passed on the latest pair. The one-million-call hot-function stress/checksum passed on the preceding pair (`39d6558…` / `78a0011…`). These checks verify V8 evaluation in its JIT-enabled configuration, not optimized machine-code generation or behavior with global `kern.elf64.allow_wx=0`; the observed global setting was `1` and was not modified.                                                                             |
-| MCP configuration discovery       | `codex-freebsd mcp list` exits 0 and reports configured/enabled state                                                                                                                   | Pass: `jerboa`, `jerbsearch`, `kagi`, `llm_search`, and `openaiDeveloperDocs` enabled; `gerbil` disabled. Auth status was `Unsupported` for configured servers                                                                                                                                                                                                                                                                                                                                                                                                           |
+| MCP configuration discovery       | `codex-freebsd mcp list` exits 0 and reports configured/enabled state                                                                                                                   | Pass: `jerboa`, `jerbsearch`, `kagi`, `llm_search`, and `openaiDeveloperDocs` enabled; `gerbil` disabled. `mcp list` reports authentication metadata as `Unsupported`; the configured Kagi wrapper nevertheless completed the real read-only search recorded below.                                                                                                                                                                                                                                                                                                                                                                                                           |
 | App-server catalog surface        | Initialize app-server and start an ephemeral thread; inspect returned fields for actual tool schemas                                                                                    | Native app-server initialize returned `userAgent`, `codexHome`, `platformFamily`, and `platformOs`; `thread/start` returned thread/model/provider/workspace/approval config, but no tool names or schemas. The local Responses recorder captured the later model request schema; no external model was used                                                                                                                                                                                                                                                              |
 | Helper executable lookup          | Installed and relocated binary selects the correct adjacent or package-resource helper; helper executes and completes a code-mode cell                                                  | The installed final pair resolves its suffixed sibling and passed direct IPC and app-server tests. Earlier missing-companion checks used a separate staged copy                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Model/API reachability            | One native model request completes using an explicitly supported model                                                                                                                  | Pass on installed CLI `b9743a58…91cc8`: supported `gpt-5.6-sol` reached the service and live TUI PTY verified a completed command event plus exact scratch file                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -177,9 +177,9 @@ reruns on the newer hashes.
 | Parallel tool dispatch              | Start two shell calls or local fixture MCP calls with reciprocal bounded barriers                               | Both completed items/results plus both markers prove overlap                        | Pass on pre-security candidate CLI: parallel shell barriers completed; fixture-MCP overlap also passed with measured `max_concurrent=2`                                                                                                                                                                                                                             |
 | Error propagation                   | Execute a deliberately nonexistent command or fixture MCP error                                                 | Exact failed command/MCP tool item and error text                                   | Pass on pre-security candidate CLI for the nonexistent command and fixture-MCP error; expected failed tool results matched                                                                                                                                                                                                                                          |
 | Jerboa MCP read calls               | Bounded feature/search/balance/error-fix read calls                                                             | Completed MCP events identify exact server/tool/arguments and contain a result      | Targeted real-model calls for `list_features`, `howto`, and `check_balance` passed with matching completed MCP events; the original balance prompt was a model non-call, but a forced enabled-tool read probe passed. `error-fix` lookup passed. The deterministic local-stub app-server replay passed all 51 Jerboa names in 60 calls against the patched provider |
-| Other configured MCP servers        | Query `tools/list` before invoking any tool                                                                     | Server starts; tool schemas are captured; calls are separately classified           | OpenAI Developer Docs schema, five direct reads, and five native Code Mode calls passed. Three enabled local executables are missing                                                                                                                                                                                                                                |
+| Other configured MCP servers        | Query `tools/list` before invoking any tool                                                                     | Server starts; tool schemas are captured; calls are separately classified           | OpenAI Developer Docs schema, five direct reads and five native Code Mode calls passed. One bounded real Kagi `kagi_search_fetch` call also passed through the installed wrapper and native Code Mode path; `jerbsearch` and `llm_search` remain unvalidated.                                                                                                                                                                                                                                |
 | Missing MCP provider diagnostic     | Start app-server with an isolated configured command path that does not exist, then call `mcpServerStatus/list` | Failed status contains exact startup/ENOENT diagnosis; no provider is launched      | Native test passed: `MCP startup failed: No such file or directory (os error 2)`; response does not include the configured command path                                                                                                                                                                                                                             |
-| Disabled or unavailable MCP servers | Inspect configuration/list output only                                                                          | State is reported accurately; no call is misreported as a successful tool execution | `gerbil` disabled; local enabled executables absent                                                                                                                                                                                                                                                                                                                 |
+| Disabled or unavailable MCP servers | Inspect configuration/list output only                                                                          | State is reported accurately; no call is misreported as a successful tool execution | `gerbil` is disabled; `jerbsearch` and `llm_search` remain unvalidated                                                                                                                                                                                                                                                                                                                 |
 
 ### Every configured MCP server
 
@@ -219,29 +219,37 @@ final pair also passed all five. The test
 does not edit `~/.codex` or require an API key for the model stub; do not count
 provider-level success as Codex dispatch success.
 
-The enabled local servers `jerbsearch`, `kagi`, and `llm_search` were
-unavailable in the initial inventory: safe startup attempts failed with
-`FileNotFoundError` before MCP initialize because
-`/home/user/.local/bin/jerbsearch`, `/home/user/.local/bin/kagi-mcp-token`,
-and `/home/user/.local/bin/llm-search` were absent. Jerbsearch has since been
-staged separately, but its configured invocation was not validated here. The
-`llm_search` probe invoked the direct `llm-search mcp` command,
-not its configured shell wrapper, to avoid starting its unrelated daemon. No
-tool schemas or calls were available for those missing executables. `gerbil`
-is disabled and `/home/user/.local/bin/gerbil-mcp` is also absent; it was not
-started. Therefore, an “all configured MCP tools” pass is not currently
-possible: these three enabled server dependencies first need to exist and
-advertise their actual schemas.
+The initial inventory found `jerbsearch`, `kagi`, and `llm_search` unavailable:
+safe startup attempts failed before MCP initialize because their configured
+executables were absent. Since then, a Kagi stdio server and wrapper were
+installed side-by-side, and the installed native CLI completed one actual
+read-only Kagi search through Code Mode. The test used the exact query
+`OpenAI Codex GitHub repository` with limit 3, asserted one correlated
+completed non-error `kagi_search_fetch` MCP result with nonempty text and three
+validated GitHub URLs, and verified that the result reached the follow-up model
+request. A local Responses fixture controls only the outer model turn; the
+Kagi request was real. No token contents or authorization headers were logged,
+and no raw search result text was retained. Sanitized evidence, including
+installed CLI/helper and Kagi wrapper/stdio hashes, is at
+`/home/user/work/codex-runtime-repro/kagi-real-search/installed-native-kagi-search.json`.
 
-Read-only dependency/source inspection found these likely reasons for the
-missing local programs: `jerbsearch` is configured to execute a frontend name
-different from the `~/mine/jerboa-websearch/bin/jerbsearch-mcp` launcher, and
-that launcher also requires a Chez Scheme runtime that is not installed;
-`llm-search` has a source checkout at `~/mine/jerboa-llm-search` but its native
-executable is absent; no local source checkout for the configured Kagi helper
-was found. These are environment/configuration findings only. Jerbsearch and
-Jerboa are staged at side-by-side versioned paths; the default Linux Codex
-and existing Jerboa binaries were not replaced.
+`jerbsearch` has been staged separately but its configured invocation remains
+unvalidated. The `llm_search` probe invoked the direct `llm-search mcp` command,
+not its configured shell wrapper, to avoid starting its unrelated daemon; its
+configured invocation is also unvalidated. `gerbil` is disabled and was not
+started. An all-configured-server pass is therefore still pending for those
+two enabled local providers. Earlier Kagi startup attempts that failed before
+MCP initialization are historical and are superseded by the successful
+correlated search above.
+
+Read-only dependency/source inspection found that `jerbsearch` is configured
+to execute a frontend name different from the
+`~/mine/jerboa-websearch/bin/jerbsearch-mcp` launcher, and that launcher also
+requires a Chez Scheme runtime that is not installed. `llm-search` has a source
+checkout at `~/mine/jerboa-llm-search` but its native executable is absent.
+These are environment/configuration findings only. Jerbsearch and Jerboa are
+staged at side-by-side versioned paths; the default Linux Codex and existing
+Jerboa binaries were not replaced.
 
 For each row, append the timestamp, exact command or prompt, native tool name,
 result summary, exit status, and artifact path. Do not include secret-bearing
