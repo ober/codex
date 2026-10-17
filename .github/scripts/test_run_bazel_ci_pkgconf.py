@@ -17,7 +17,13 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
         self.assertTrue(target_platforms)
         self.assertEqual(target_platforms[-1], "--platforms=//:windows_x86_64_gnullvm")
 
-    def invoke_with_stub(self, *, api_key: str = "", repository: str = "") -> list[str]:
+    def invoke_with_stub(
+        self,
+        *,
+        api_key: str = "",
+        repository: str = "",
+        cross_compile: bool = True,
+    ) -> list[str]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
@@ -34,19 +40,35 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
             CODEX_BAZEL_BIN=str(bazel),
             CODEX_TEST_CAPTURE_ARGS=str(captured),
             CODEX_BAZEL_WINDOWS_PATH="C:/Windows/System32",
+            INCLUDE="C:/VS/include",
+            LIB="C:/VS/lib",
+            LIBPATH="C:/VS/libpath",
+            UCRTVersion="10.0.26100.0",
+            UniversalCRTSdkDir="C:/Windows Kits/10",
+            VCINSTALLDIR="C:/VS",
+            VCToolsInstallDir="C:/VS/Tools",
+            WindowsLibPath="C:/Windows Kits/lib",
+            WindowsSdkBinPath="C:/Windows Kits/bin",
+            WindowsSdkDir="C:/Windows Kits/10",
+            WindowsSDKLibVersion="10.0.26100.0",
+            WindowsSDKVersion="10.0.26100.0",
             VOICE_WINDOWS_PKGCONF_REPOSITORY=repository,
             BUILDBUDDY_API_KEY=api_key,
         )
-        result = subprocess.run(
+        command = [str(SCRIPT)]
+        if cross_compile:
+            command.append("--windows-cross-compile")
+        command.extend(
             [
-                str(SCRIPT),
-                "--windows-cross-compile",
                 "--",
                 "build",
                 "--platforms=//:windows_x86_64",
                 "--",
                 "//some:target",
-            ],
+            ]
+        )
+        result = subprocess.run(
+            command,
             check=False,
             capture_output=True,
             env=environment,
@@ -68,6 +90,24 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
         self.assertNotIn(
             "--extra_execution_platforms=//:rbe,//:windows_x86_64_msvc", args
         )
+        self.assertIn("--host_action_env=PATH=C:/Windows/System32", args)
+        self.assertIn("--test_env=PATH=C:/Windows/System32", args)
+        self.assertFalse(any(arg.startswith("--action_env=") for arg in args))
+        for variable in (
+            "INCLUDE",
+            "LIB",
+            "LIBPATH",
+            "UCRTVersion",
+            "UniversalCRTSdkDir",
+            "VCINSTALLDIR",
+            "VCToolsInstallDir",
+            "WindowsLibPath",
+            "WindowsSdkBinPath",
+            "WindowsSdkDir",
+            "WindowsSDKLibVersion",
+            "WindowsSDKVersion",
+        ):
+            self.assertIn(f"--host_action_env={variable}", args)
         local_config = [
             line
             for line in BAZELRC.read_text(encoding="utf-8").splitlines()
@@ -82,24 +122,51 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
             local_config,
         )
         self.assertIn(
-            "common:ci-windows-cross-local --config=ci-windows-msvc",
+            "common:ci-windows-cross-local --config=ci-windows-msvc-host",
             local_config,
         )
         self.assertFalse(any("//:rbe" in line for line in local_config))
-        msvc_config = [
+        host_config = [
+            line
+            for line in BAZELRC.read_text(encoding="utf-8").splitlines()
+            if line.startswith("build:ci-windows-msvc-host ")
+        ]
+        self.assertIn(
+            "build:ci-windows-msvc-host --extra_toolchains=//:local_windows_x64_msvc_cc_toolchain,//:local_windows_arm64_msvc_cc_toolchain",
+            host_config,
+        )
+        self.assertTrue(any("--host_action_env=PATH" in line for line in host_config))
+        self.assertFalse(any("--action_env=" in line for line in host_config))
+        self.assertFalse(any("@local_config_cc//:" in line for line in host_config))
+        self.assertFalse(
+            any("BAZEL_MSVC_RUNTIME_VISUAL_STUDIO_EULA" in line for line in host_config)
+        )
+        build_file = (BAZELRC.parent / "BUILD.bazel").read_text(encoding="utf-8")
+        self.assertIn(
+            'name = "local_windows_x64_msvc_cc_toolchain",\n'
+            "    exec_compatible_with = [\n"
+            '        "@platforms//cpu:x86_64",\n'
+            '        "@platforms//os:windows",\n'
+            '        "@llvm//constraints/windows/abi:msvc",\n'
+            "    ],\n"
+            "    target_compatible_with = [\n"
+            '        "@platforms//cpu:x86_64",\n'
+            '        "@platforms//os:windows",\n'
+            '        "@llvm//constraints/windows/abi:msvc",\n'
+            "    ],\n"
+            '    toolchain = "@local_config_cc//:cc-compiler-x64_windows",',
+            build_file,
+        )
+        native_msvc_config = [
             line
             for line in BAZELRC.read_text(encoding="utf-8").splitlines()
             if line.startswith("build:ci-windows-msvc ")
         ]
-        self.assertTrue(
-            any(
-                "@local_config_cc//:cc-toolchain-x64_windows" in line
-                for line in msvc_config
-            )
+        self.assertIn(
+            "build:ci-windows-msvc --config=ci-windows-msvc-host",
+            native_msvc_config,
         )
-        self.assertFalse(
-            any("BAZEL_MSVC_RUNTIME_VISUAL_STUDIO_EULA" in line for line in msvc_config)
-        )
+        self.assertTrue(any("--action_env=PATH" in line for line in native_msvc_config))
         self.assertIn(
             "--inject_repository=voice_windows_pkgconf=C:/runner/temp/voice-windows-pkgconf",
             args,
@@ -135,6 +202,18 @@ class RunBazelPkgconfFallbackTests(unittest.TestCase):
         self.assertIn("--config=ci-windows-cross", args)
         self.assert_final_target_platform(args)
         self.assertIn("--host_platform=//:rbe", args)
+        self.assertIn("--action_env=PATH=/usr/bin:/bin", args)
+        self.assertIn("--host_action_env=PATH=/usr/bin:/bin", args)
+
+    @unittest.skipIf(os.name == "nt", "The shell wrapper test requires Bash")
+    def test_native_windows_preserves_target_and_host_build_environment(self):
+        args = self.invoke_with_stub(cross_compile=False)
+
+        self.assertIn("--action_env=PATH=C:/Windows/System32", args)
+        self.assertIn("--host_action_env=PATH=C:/Windows/System32", args)
+        self.assertIn("--action_env=INCLUDE", args)
+        self.assertIn("--host_action_env=INCLUDE", args)
+        self.assertIn("--test_env=PATH=C:/Windows/System32", args)
 
 
 if __name__ == "__main__":

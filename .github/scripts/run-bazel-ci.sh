@@ -368,7 +368,11 @@ if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
 
     for env_var in "${windows_action_env_vars[@]}"; do
       if [[ -n "${!env_var:-}" ]]; then
-        post_config_bazel_args+=("--action_env=${env_var}" "--host_action_env=${env_var}")
+        if [[ $windows_local_cross_fallback -eq 1 ]]; then
+          post_config_bazel_args+=("--host_action_env=${env_var}")
+        else
+          post_config_bazel_args+=("--action_env=${env_var}" "--host_action_env=${env_var}")
+        fi
       fi
     done
   fi
@@ -379,10 +383,14 @@ if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
   fi
 
   if [[ $pass_windows_build_env -eq 1 ]]; then
-    post_config_bazel_args+=(
-      "--action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
-      "--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
-    )
+    if [[ $windows_local_cross_fallback -eq 1 ]]; then
+      post_config_bazel_args+=("--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}")
+    else
+      post_config_bazel_args+=(
+        "--action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
+        "--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
+      )
+    fi
   elif [[ $windows_cross_compile -eq 1 ]]; then
     # Remote build actions run on Linux RBE workers. Give their shell snippets
     # a Linux PATH while preserving CODEX_BAZEL_WINDOWS_PATH below for local

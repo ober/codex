@@ -58,6 +58,41 @@ platform(
     ],
 )
 
+# The rules_cc Windows autoconfiguration publishes toolchains that match only
+# CPU and OS. Wrap them with an ABI constraint so they are available to MSVC
+# host tools without claiming the gnullvm target platform.
+toolchain(
+    name = "local_windows_x64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-x64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+toolchain(
+    name = "local_windows_arm64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-arm64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 toolchain(
     name = "windows_gnullvm_tests_on_msvc_host_toolchain",
     exec_compatible_with = [
