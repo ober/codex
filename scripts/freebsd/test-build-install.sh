@@ -11,15 +11,13 @@ if [ "$(rustc -vV | sed -n 's/^host: //p')" != x86_64-unknown-freebsd ]; then
   echo "SKIP: build-install fixture test requires native amd64 FreeBSD rustc" >&2
   exit 77
 fi
+if [ ! -x /usr/bin/clang ]; then
+  echo "error: native /usr/bin/clang is required for small ELF fixtures" >&2
+  exit 2
+fi
 
 REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 INSTALLER="$REPO_ROOT/scripts/freebsd/build-install.sh"
-SOURCE_CLI=${CODEX_FREEBSD_TEST_CLI_SOURCE:-"$HOME/.local/bin/codex-freebsd"}
-SOURCE_HOST=${CODEX_FREEBSD_TEST_HOST_SOURCE:-"$REPO_ROOT/target/freebsd-code-mode/release/codex-code-mode-host"}
-if [ ! -f "$SOURCE_CLI" ] || [ -L "$SOURCE_CLI" ]; then
-  echo "error: native regular CLI fixture source is missing: $SOURCE_CLI" >&2
-  exit 2
-fi
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/codex-freebsd-install-test.XXXXXX")
 cleanup() {
 	if [ "${CODEX_FREEBSD_TEST_KEEP_TMP:-0}" = 1 ]; then
@@ -33,18 +31,48 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# Until a real helper build is present, use a second copy of the genuine native
-# CLI as the helper fixture. It is never executed in the host role; the
-# installer validates its ELF format and wxneeded note, while --version checks
-# execute only the installed CLI.
-if [ -z "${CODEX_FREEBSD_TEST_HOST_SOURCE:-}" ] && [ ! -f "$SOURCE_HOST" ]; then
-	SOURCE_HOST="$TMP_ROOT/native-host-fixture"
-	cp "$SOURCE_CLI" "$SOURCE_HOST"
-	chmod 755 "$SOURCE_HOST"
+if [ -n "${CODEX_FREEBSD_TEST_CLI_SOURCE:-}" ]; then
+  SOURCE_CLI=$CODEX_FREEBSD_TEST_CLI_SOURCE
+else
+  SOURCE_CLI="$TMP_ROOT/native-cli-fixture"
+  cat > "$TMP_ROOT/fixture_cli.c" <<'EOF'
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+  if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+    puts("codex 0.0.0-freebsd-install-fixture");
+    return 0;
+  }
+  return 64;
+}
+EOF
+  /usr/bin/clang "$TMP_ROOT/fixture_cli.c" -o "$SOURCE_CLI"
+fi
+if [ ! -f "$SOURCE_CLI" ] || [ -L "$SOURCE_CLI" ]; then
+  echo "error: native regular CLI fixture source is missing: $SOURCE_CLI" >&2
+  exit 2
+fi
+
+# Compile a tiny, unmarked native helper fixture. This exercises the real
+# FreeBSD ELF feature-note addition below without copying or executing the
+# large Rust CLI/V8 host artifacts.
+if [ -n "${CODEX_FREEBSD_TEST_HOST_SOURCE:-}" ]; then
+  SOURCE_HOST=$CODEX_FREEBSD_TEST_HOST_SOURCE
+else
+  SOURCE_HOST="$TMP_ROOT/native-host-fixture"
+  cat > "$TMP_ROOT/fixture_host.c" <<'EOF'
+int main(void) { return 0; }
+EOF
+  /usr/bin/clang "$TMP_ROOT/fixture_host.c" -o "$SOURCE_HOST"
+  if elfctl "$SOURCE_HOST" | grep -q 'wxneeded.*is set'; then
+    echo "error: helper fixture unexpectedly starts with wxneeded set" >&2
+    exit 1
+  fi
 fi
 if [ ! -f "$SOURCE_HOST" ] || [ -L "$SOURCE_HOST" ]; then
-	echo "error: native regular helper fixture source is missing: $SOURCE_HOST" >&2
-	exit 2
+  echo "error: native regular helper fixture source is missing: $SOURCE_HOST" >&2
+  exit 2
 fi
 
 REAL_MV=/bin/mv
@@ -270,7 +298,7 @@ grep -q '^linux-codex-sentinel$' "$SUCCESS_BIN/codex"
 cmp -s "$SUCCESS_BIN/codex-freebsd" "$SOURCE_CLI"
 file -b "$SUCCESS_BIN/codex-freebsd" | grep -q 'ELF 64-bit.*FreeBSD'
 file -b "$SUCCESS_BIN/codex-code-mode-host-freebsd" | grep -q 'ELF 64-bit.*FreeBSD'
-elfctl -l "$SUCCESS_BIN/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
+elfctl "$SUCCESS_BIN/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
 SOURCE_VERSION=$("$SOURCE_CLI" --version)
 INSTALLED_VERSION=$("$SUCCESS_BIN/codex-freebsd" --version)
 [ "$INSTALLED_VERSION" = "$SOURCE_VERSION" ]
@@ -288,7 +316,7 @@ grep -F -q "HOST:$TMP_ROOT/host-output" "$TMP_ROOT/build-paths.log"
 cmp -s "$SEPARATE_TARGET_BIN/codex-freebsd" "$SOURCE_CLI"
 cmp -s "$TMP_ROOT/host-output/release/codex-code-mode-host" "$SEPARATE_TARGET_BIN/codex-code-mode-host-freebsd"
 file -b "$SEPARATE_TARGET_BIN/codex-code-mode-host-freebsd" | grep -q 'ELF 64-bit.*FreeBSD'
-elfctl -l "$SEPARATE_TARGET_BIN/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
+elfctl "$SEPARATE_TARGET_BIN/codex-code-mode-host-freebsd" | grep -q 'wxneeded.*is set'
 grep -q '^linux-codex-sentinel$' "$SEPARATE_TARGET_BIN/codex"
 
 prepare_old_pair() {

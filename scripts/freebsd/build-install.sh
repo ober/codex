@@ -111,7 +111,7 @@ done
 # kern.elf64.allow_wx is disabled. Keep this opt-in on the V8-using helper;
 # never change a machine-wide sysctl.
 elfctl -e +wxneeded "$HOST_SOURCE"
-elfctl -l "$HOST_SOURCE" | grep -q "wxneeded.*is set" || {
+elfctl "$HOST_SOURCE" | grep -q "wxneeded.*is set" || {
   echo "error: failed to mark the code-mode host wxneeded" >&2
   exit 1
 }
@@ -150,7 +150,7 @@ install -m 755 "$CLI_SOURCE" "$STAGE/$CLI_NAME"
 install -m 755 "$HOST_SOURCE" "$STAGE/$HOST_NAME"
 verify_freebsd_elf "$STAGE/$CLI_NAME"
 verify_freebsd_elf "$STAGE/$HOST_NAME"
-elfctl -l "$STAGE/$HOST_NAME" | grep -q "wxneeded.*is set" || {
+elfctl "$STAGE/$HOST_NAME" | grep -q "wxneeded.*is set" || {
   echo "error: staged code-mode host lost the wxneeded feature" >&2
   exit 1
 }
