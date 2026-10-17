@@ -20,13 +20,20 @@ against this staged package, with writer arguments rooted in the harness's
 temporary fixture. The active MCP config now selects that versioned `jmcp`
 and supplies its matching `JERBOA_HOME` and `JERBOA_MCP_JERBOA_PATH`; the
 existing `JERBOA_MCP_DATA_DIR` and `JERBOA_MCP_REPO` values were preserved.
-The old `~/.local/bin/jerboa` and `~/.local/bin/jmcp` were not replaced. A
-configured native Codex read-only `jerboa_list_features` smoke completed four
-distinct correlated call IDs; every call reached terminal `completed` with a
-nonempty result. Two returned one entry for `limit=1`, and two returned no
-matching entries. The production catalog SHA-256 was identical before and
-after the smoke (`fec1ae604d962d41bf1b90ea300e0cede6119676f88a3d622d328a89e190e9c9`),
-so the configured read did not mutate it. The formatter regression test
+The old `~/.local/bin/jerboa` and `~/.local/bin/jmcp` were not replaced. An
+earlier installed Codex pair completed a configured read-only
+`jerboa_list_features` smoke with four distinct correlated calls. The final
+installed pair then passed the deterministic configured-read app-server case
+with one correlated completed call and nonempty content. That case enabled
+only `jerboa_list_features`, omitted `features_path` so the provider used its
+configured data root, and isolated Codex home/cache from the user profile. The
+12-file production data tree was unchanged (SHA-256
+`2e31c058bc0cafb52d23545b3bbc37071e7c6e6bbe13e624baf2588c5b6ed07c`). Its
+sanitized raw evidence is
+`~/work/codex-runtime-repro/installed-final-suite-abe2be90/jerboa-configured-read-final.jsonl`.
+Earlier intermediate harness attempts that had no matching MCP event remain
+historical non-passes; the final deterministic fixture correlates the actual
+app-server MCP item and result. The formatter regression test
 verifies list-valued and string-valued `implemented_in` output and checks that
 unsupported value types return a typed, sanitized MCP error. The scoped config
 backup is `~/.codex/config.toml.backup-jerboa-mcp-20261017T014929Z` (mode

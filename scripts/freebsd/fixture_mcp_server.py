@@ -128,7 +128,14 @@ def _parallel(name: str, partner: str) -> dict[str, Any]:
         PARALLEL_CONDITION.notify_all()
     if overlap < 2:
         return _error(f"parallel fixture observed only {overlap} overlapping call(s)")
-    return _success({"marker": name, "partner": partner, "parallel": True, "max_concurrent": overlap})
+    return _success(
+        {
+            "marker": name,
+            "partner": partner,
+            "parallel": True,
+            "max_concurrent": overlap,
+        }
+    )
 
 
 def _call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -144,10 +151,20 @@ def _call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             temporary = target.with_name(target.name + ".tmp")
             temporary.write_text(content, encoding="utf-8")
             temporary.replace(target)
-            return _success({"path": target.relative_to(ROOT).as_posix(), "bytes": len(content.encode())})
+            return _success(
+                {
+                    "path": target.relative_to(ROOT).as_posix(),
+                    "bytes": len(content.encode()),
+                }
+            )
         if name == "fixture_read":
             target = _safe_path(arguments["path"])
-            return _success({"path": target.relative_to(ROOT).as_posix(), "content": target.read_text(encoding="utf-8")})
+            return _success(
+                {
+                    "path": target.relative_to(ROOT).as_posix(),
+                    "content": target.read_text(encoding="utf-8"),
+                }
+            )
         if name == "fixture_fail":
             return _error("fixture injected MCP error")
         if name == "fixture_parallel_left":
@@ -177,12 +194,17 @@ def _handle(message: dict[str, Any]) -> None:
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
-                    "protocolVersion": message.get("params", {}).get("protocolVersion", "2024-11-05"),
+                    "protocolVersion": message.get("params", {}).get(
+                        "protocolVersion", "2024-11-05"
+                    ),
                     "capabilities": {
                         "tools": {"listChanged": False},
                         "resources": {"listChanged": False, "subscribe": False},
                     },
-                    "serverInfo": {"name": "codex-freebsd-test-fixture", "version": "1.0.0"},
+                    "serverInfo": {
+                        "name": "codex-freebsd-test-fixture",
+                        "version": "1.0.0",
+                    },
                 },
             }
         )
@@ -191,44 +213,70 @@ def _handle(message: dict[str, Any]) -> None:
         _write_response({"jsonrpc": "2.0", "id": request_id, "result": {}})
         return
     if method == "tools/list":
-        _write_response({"jsonrpc": "2.0", "id": request_id, "result": {"tools": TOOLS}})
+        _write_response(
+            {"jsonrpc": "2.0", "id": request_id, "result": {"tools": TOOLS}}
+        )
         return
     if method == "resources/list":
-        _write_response({
-            "jsonrpc": "2.0", "id": request_id,
-            "result": {"resources": [{
-                "uri": "fixture://codex/resource",
-                "name": "codex-fixture-note",
-                "description": "Static local fixture resource.",
-                "mimeType": "text/plain",
-            }]},
-        })
+        _write_response(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "resources": [
+                        {
+                            "uri": "fixture://codex/resource",
+                            "name": "codex-fixture-note",
+                            "description": "Static local fixture resource.",
+                            "mimeType": "text/plain",
+                        }
+                    ]
+                },
+            }
+        )
         return
     if method == "resources/templates/list":
-        _write_response({
-            "jsonrpc": "2.0", "id": request_id,
-            "result": {"resourceTemplates": [{
-                "uriTemplate": "fixture://codex/items/{name}",
-                "name": "codex-fixture-item",
-                "description": "Parameterized local fixture resource.",
-                "mimeType": "text/plain",
-            }]},
-        })
+        _write_response(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "resourceTemplates": [
+                        {
+                            "uriTemplate": "fixture://codex/items/{name}",
+                            "name": "codex-fixture-item",
+                            "description": "Parameterized local fixture resource.",
+                            "mimeType": "text/plain",
+                        }
+                    ]
+                },
+            }
+        )
         return
     if method == "resources/read":
         uri = message.get("params", {}).get("uri")
         if uri == "fixture://codex/resource":
-            contents = [{
-                "uri": uri,
-                "mimeType": "text/plain",
-                "text": "FIXTURE_RESOURCE_CONTENT_OK",
-            }]
-            _write_response({"jsonrpc": "2.0", "id": request_id, "result": {"contents": contents}})
+            contents = [
+                {
+                    "uri": uri,
+                    "mimeType": "text/plain",
+                    "text": "FIXTURE_RESOURCE_CONTENT_OK",
+                }
+            ]
+            _write_response(
+                {"jsonrpc": "2.0", "id": request_id, "result": {"contents": contents}}
+            )
         else:
-            _write_response({
-                "jsonrpc": "2.0", "id": request_id,
-                "error": {"code": -32002, "message": f"unknown fixture resource: {uri}"},
-            })
+            _write_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32002,
+                        "message": f"unknown fixture resource: {uri}",
+                    },
+                }
+            )
         return
     if method == "tools/call":
         params = message.get("params", {})

@@ -32,9 +32,12 @@ TOOL_ITEM_TYPES = {
 
 def tiny_test_png() -> bytes:
     """Build a deterministic one-pixel red RGBA PNG for view_image smoke tests."""
+
     def chunk(kind: bytes, data: bytes) -> bytes:
         return (
-            struct.pack(">I", len(data)) + kind + data
+            struct.pack(">I", len(data))
+            + kind
+            + data
             + struct.pack(">I", binascii.crc32(kind + data) & 0xFFFFFFFF)
         )
 
@@ -144,7 +147,9 @@ def build_command(
         command.extend(["--config", expanded])
     prompt = case["prompt"].replace("__FIXTURE_ROOT__", str(fixture))
     if case.get("fixture_image"):
-        prompt = prompt.replace("__FIXTURE_IMAGE_PATH__", str(fixture / case["fixture_image"]))
+        prompt = prompt.replace(
+            "__FIXTURE_IMAGE_PATH__", str(fixture / case["fixture_image"])
+        )
     command.append(prompt)
     return command
 
@@ -155,7 +160,14 @@ def matches_item(item: dict[str, Any], expectation: dict[str, Any]) -> bool:
     for key in ("server", "tool", "status", "exit_code", "success", "name", "path"):
         if key in expectation and item.get(key) != expectation[key]:
             return False
-    for key in ("aggregated_output", "interaction_input", "stdout", "stderr", "output", "path"):
+    for key in (
+        "aggregated_output",
+        "interaction_input",
+        "stdout",
+        "stderr",
+        "output",
+        "path",
+    ):
         for marker in expectation.get(f"{key}_contains", []):
             if marker not in str(item.get(key, "")):
                 return False
@@ -175,7 +187,9 @@ def matches_item(item: dict[str, Any], expectation: dict[str, Any]) -> bool:
     for key, value in expectation.get("arguments", {}).items():
         if item.get("arguments", {}).get(key) != value:
             return False
-    if expectation.get("arguments_exact") and item.get("arguments", {}) != expectation.get("arguments", {}):
+    if expectation.get("arguments_exact") and item.get(
+        "arguments", {}
+    ) != expectation.get("arguments", {}):
         return False
     if expectation.get("result_contains"):
         serialized_result = json.dumps(item.get("result"), sort_keys=True)
@@ -198,7 +212,8 @@ def matches_fail_closed(
             direct_errors.append(json.dumps(event, sort_keys=True).lower())
         elif event.get("type") == "item.completed" and isinstance(item, dict):
             if item.get("type") == "error" or (
-                item.get("type") == "command_execution" and item.get("status") == "failed"
+                item.get("type") == "command_execution"
+                and item.get("status") == "failed"
             ):
                 direct_errors.append(json.dumps(item, sort_keys=True).lower())
     # FreeBSD may reject sandbox creation before an execution item is emitted.
@@ -242,7 +257,9 @@ def unallowed_tool_items(
 
 
 def validate_fixture(
-    fixture: Path, expected_files: dict[str, str], expected_binary_files: dict[str, bytes]
+    fixture: Path,
+    expected_files: dict[str, str],
+    expected_binary_files: dict[str, bytes],
 ) -> str | None:
     observed = {}
     for path in fixture.rglob("*"):
@@ -257,7 +274,9 @@ def validate_fixture(
             else:
                 observed[relative] = path.read_text(encoding="utf-8")
     expected_observed: dict[str, str] = dict(expected_files)
-    expected_observed.update({path: "<expected binary>" for path in expected_binary_files})
+    expected_observed.update(
+        {path: "<expected binary>" for path in expected_binary_files}
+    )
     if observed != expected_observed:
         return f"fixture contents differed: expected {expected_observed!r}, observed {observed!r}"
     return None
@@ -277,88 +296,199 @@ def self_test() -> None:
     line = json.dumps({"type": "item.completed", "item": mcp_item})
     events = parse_jsonl(line + "\n")
     items = completed_items(events)
-    assert len(items) == 1 and matches_item(items[0], {
-        "type": "mcp_tool_call",
-        "server": "codex_fixture",
-        "tool": "fixture_read",
-        "status": "completed",
-        "arguments": {"path": "probe.txt"},
-        "arguments_exact": True,
-        "result_payload_present": True,
-        "result_contains": "fixture-ok",
-    })
-    assert not matches_item(items[0], {
-        "type": "mcp_tool_call", "server": "jerboa", "tool": "fixture_read",
-    }), "wrong server unexpectedly matched"
-    assert not matches_item({**mcp_item, "arguments": {"path": "probe.txt", "unexpected": True}}, {
-        "type": "mcp_tool_call", "server": "codex_fixture", "tool": "fixture_read",
-        "arguments": {"path": "probe.txt"}, "arguments_exact": True,
-    }), "unexpected MCP arguments unexpectedly matched"
-    prose = completed_items(parse_jsonl(json.dumps({
-        "type": "item.completed", "item": {"type": "agent_message", "text": "fixture-ok ran"}
-    })))
-    assert len(prose) == 1 and not matches_item(prose[0], {
-        "type": "mcp_tool_call", "server": "codex_fixture", "tool": "fixture_read",
-    }), "assistant prose was incorrectly treated as a tool call"
-    assert matches_item({
-        "type": "file_change", "status": "completed",
-        "changes": [{"path": "patch-marker.txt", "kind": "add"}],
-    }, {
-        "type": "file_change", "status": "completed",
-        "changes": [{"path": "patch-marker.txt", "kind": "add"}],
-    })
-    assert not matches_item({
-        "type": "file_change", "status": "completed",
-        "changes": [{"path": "unexpected.txt", "kind": "add"}],
-    }, {
-        "type": "file_change", "status": "completed",
-        "changes": [{"path": "patch-marker.txt", "kind": "add"}],
-    }), "unexpected patch path unexpectedly matched"
-    assert unallowed_tool_items([{
-        "type": "command_execution", "status": "completed", "command": ["touch", "unrequested"]
-    }], []), "unexpected completed tool call was not detected"
-    assert unallowed_tool_items([{
-        "type": "collab_tool_call", "status": "completed", "tool": "send_input"
-    }], []), "unexpected collaboration tool call was not detected"
-    assert not unallowed_tool_items([{
-        "type": "mcp_tool_call", "server": "jerboa", "tool": "jerboa_compact_tool_manifest",
-        "status": "completed", "arguments": {"query": "fixture"},
-    }], [{
-        "type": "mcp_tool_call", "server": "jerboa", "tool": "jerboa_compact_tool_manifest",
-        "status": "completed",
-    }]), "an explicitly allowed harmless discovery call was rejected"
-    fail_closed = parse_jsonl(json.dumps({
-        "type": "item.completed",
-        "item": {"type": "command_execution", "status": "failed", "aggregated_output": "filesystem sandbox cannot be enforced"},
-    }))
-    assert matches_fail_closed(fail_closed, "filesystem sandbox cannot be enforced", ["command_execution"])
-    router_only_failure = parse_jsonl(json.dumps({
-        "type": "item.completed",
-        "item": {
-            "type": "agent_message",
-            "text": "Tool error: filesystem sandbox cannot be enforced",
+    assert len(items) == 1 and matches_item(
+        items[0],
+        {
+            "type": "mcp_tool_call",
+            "server": "codex_fixture",
+            "tool": "fixture_read",
+            "status": "completed",
+            "arguments": {"path": "probe.txt"},
+            "arguments_exact": True,
+            "result_payload_present": True,
+            "result_contains": "fixture-ok",
         },
-    }))
+    )
+    assert not matches_item(
+        items[0],
+        {
+            "type": "mcp_tool_call",
+            "server": "jerboa",
+            "tool": "fixture_read",
+        },
+    ), "wrong server unexpectedly matched"
+    assert not matches_item(
+        {**mcp_item, "arguments": {"path": "probe.txt", "unexpected": True}},
+        {
+            "type": "mcp_tool_call",
+            "server": "codex_fixture",
+            "tool": "fixture_read",
+            "arguments": {"path": "probe.txt"},
+            "arguments_exact": True,
+        },
+    ), "unexpected MCP arguments unexpectedly matched"
+    prose = completed_items(
+        parse_jsonl(
+            json.dumps(
+                {
+                    "type": "item.completed",
+                    "item": {"type": "agent_message", "text": "fixture-ok ran"},
+                }
+            )
+        )
+    )
+    assert len(prose) == 1 and not matches_item(
+        prose[0],
+        {
+            "type": "mcp_tool_call",
+            "server": "codex_fixture",
+            "tool": "fixture_read",
+        },
+    ), "assistant prose was incorrectly treated as a tool call"
+    assert matches_item(
+        {
+            "type": "file_change",
+            "status": "completed",
+            "changes": [{"path": "patch-marker.txt", "kind": "add"}],
+        },
+        {
+            "type": "file_change",
+            "status": "completed",
+            "changes": [{"path": "patch-marker.txt", "kind": "add"}],
+        },
+    )
+    assert not matches_item(
+        {
+            "type": "file_change",
+            "status": "completed",
+            "changes": [{"path": "unexpected.txt", "kind": "add"}],
+        },
+        {
+            "type": "file_change",
+            "status": "completed",
+            "changes": [{"path": "patch-marker.txt", "kind": "add"}],
+        },
+    ), "unexpected patch path unexpectedly matched"
+    assert unallowed_tool_items(
+        [
+            {
+                "type": "command_execution",
+                "status": "completed",
+                "command": ["touch", "unrequested"],
+            }
+        ],
+        [],
+    ), "unexpected completed tool call was not detected"
+    assert unallowed_tool_items(
+        [{"type": "collab_tool_call", "status": "completed", "tool": "send_input"}], []
+    ), "unexpected collaboration tool call was not detected"
+    assert not unallowed_tool_items(
+        [
+            {
+                "type": "mcp_tool_call",
+                "server": "jerboa",
+                "tool": "jerboa_compact_tool_manifest",
+                "status": "completed",
+                "arguments": {"query": "fixture"},
+            }
+        ],
+        [
+            {
+                "type": "mcp_tool_call",
+                "server": "jerboa",
+                "tool": "jerboa_compact_tool_manifest",
+                "status": "completed",
+            }
+        ],
+    ), "an explicitly allowed harmless discovery call was rejected"
+    fail_closed = parse_jsonl(
+        json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "command_execution",
+                    "status": "failed",
+                    "aggregated_output": "filesystem sandbox cannot be enforced",
+                },
+            }
+        )
+    )
+    assert matches_fail_closed(
+        fail_closed, "filesystem sandbox cannot be enforced", ["command_execution"]
+    )
+    router_only_failure = parse_jsonl(
+        json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "agent_message",
+                    "text": "Tool error: filesystem sandbox cannot be enforced",
+                },
+            }
+        )
+    )
     assert matches_fail_closed(
         router_only_failure,
         "filesystem sandbox cannot be enforced",
         ["command_execution"],
-        '2026-01-01 ERROR codex_core::tools::router: error=exec_command failed: '
+        "2026-01-01 ERROR codex_core::tools::router: error=exec_command failed: "
         'CreateProcess { message: "Rejected(\\"filesystem sandbox cannot be enforced\\")" }',
     ), "native router rejection log was not accepted"
-    live_interactive_command = parse_jsonl("\n".join([
-        json.dumps({"type": "item.started", "item": {"id": "cmd-1", "type": "command_execution", "command": "sh -c 'read input'"}}),
-        json.dumps({"type": "item.completed", "item": {"id": "cmd-1", "type": "command_execution", "status": "completed"}}),
-    ]))
-    assert matches_started_completed_pair(live_interactive_command, {
-        "type": "command_execution", "command_contains": "read input",
-    })
-    assert not matches_started_completed_pair(live_interactive_command, {
-        "type": "command_execution", "command_contains": "different command",
-    })
-    assert not matches_fail_closed(parse_jsonl(json.dumps({
-        "type": "item.completed", "item": {"type": "agent_message", "text": "sandbox cannot be enforced"},
-    })), "filesystem sandbox cannot be enforced", ["command_execution"]), "assistant prose passed fail-closed test"
+    live_interactive_command = parse_jsonl(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "item.started",
+                        "item": {
+                            "id": "cmd-1",
+                            "type": "command_execution",
+                            "command": "sh -c 'read input'",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "item.completed",
+                        "item": {
+                            "id": "cmd-1",
+                            "type": "command_execution",
+                            "status": "completed",
+                        },
+                    }
+                ),
+            ]
+        )
+    )
+    assert matches_started_completed_pair(
+        live_interactive_command,
+        {
+            "type": "command_execution",
+            "command_contains": "read input",
+        },
+    )
+    assert not matches_started_completed_pair(
+        live_interactive_command,
+        {
+            "type": "command_execution",
+            "command_contains": "different command",
+        },
+    )
+    assert not matches_fail_closed(
+        parse_jsonl(
+            json.dumps(
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "type": "agent_message",
+                        "text": "sandbox cannot be enforced",
+                    },
+                }
+            )
+        ),
+        "filesystem sandbox cannot be enforced",
+        ["command_execution"],
+    ), "assistant prose passed fail-closed test"
     assert not matches_fail_closed(
         router_only_failure,
         "filesystem sandbox cannot be enforced",
@@ -378,7 +508,9 @@ def run_case(
         "id": case["id"],
         "status": "fail",
     }
-    with tempfile.TemporaryDirectory(prefix=f"codex-{case['id']}-", dir=fixture_root) as temp:
+    with tempfile.TemporaryDirectory(
+        prefix=f"codex-{case['id']}-", dir=fixture_root
+    ) as temp:
         fixture = Path(temp)
         expected_binary_files: dict[str, bytes] = {}
         if case.get("fixture_image"):
@@ -391,7 +523,9 @@ def run_case(
         if case.get("isolated_codex_home"):
             isolated_home = fixture / ".codex-home"
             isolated_home.mkdir(mode=0o700)
-            source_home = Path(environment.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
+            source_home = Path(
+                environment.get("CODEX_HOME", str(Path.home() / ".codex"))
+            ).expanduser()
             auth_file = source_home / "auth.json"
             if auth_file.is_file():
                 shutil.copyfile(auth_file, isolated_home / "auth.json")
@@ -409,7 +543,9 @@ def run_case(
                 env=environment,
             )
         except subprocess.TimeoutExpired:
-            result["reason"] = f"Codex timed out after {timeout:g}s before a verified result"
+            result["reason"] = (
+                f"Codex timed out after {timeout:g}s before a verified result"
+            )
             return result
         except OSError as error:
             result["reason"] = f"could not start native Codex: {error}"
@@ -423,7 +559,9 @@ def run_case(
             return result
 
         expected_exit = case.get("expected_cli_exit", 0)
-        allowed_exits = expected_exit if isinstance(expected_exit, list) else [expected_exit]
+        allowed_exits = (
+            expected_exit if isinstance(expected_exit, list) else [expected_exit]
+        )
         if completed.returncode not in allowed_exits:
             result["reason"] = event_error_summary(events, completed.stderr)
             result["exit_code"] = completed.returncode
@@ -433,8 +571,7 @@ def run_case(
         for expectation in case.get("started_item_expectations", []):
             if not matches_started_completed_pair(events, expectation):
                 result["reason"] = (
-                    "missing started/completed item pair matching "
-                    f"{expectation!r}"
+                    f"missing started/completed item pair matching {expectation!r}"
                 )
                 return result
         limitation = None
@@ -450,7 +587,9 @@ def run_case(
                     f"marker {case['fail_closed_error_contains']!r}"
                 )
                 return result
-            limitation = f"direct fail-closed error: {case['fail_closed_error_contains']}"
+            limitation = (
+                f"direct fail-closed error: {case['fail_closed_error_contains']}"
+            )
         expectations = case.get("expected_items", [])
         unmatched_items = list(items)
         for expectation in expectations:
@@ -466,7 +605,9 @@ def run_case(
                     alternative.get("no_completed_item_types", []),
                     completed.stderr,
                 ):
-                    limitation = f"direct fail-closed error: {alternative['error_contains']}"
+                    limitation = (
+                        f"direct fail-closed error: {alternative['error_contains']}"
+                    )
                     break
                 reason = (
                     "missing completed tool item matching "
@@ -484,10 +625,16 @@ def run_case(
             )
             if unexpected:
                 summary = [
-                    {key: item.get(key) for key in ("type", "server", "tool", "status", "command") if key in item}
+                    {
+                        key: item.get(key)
+                        for key in ("type", "server", "tool", "status", "command")
+                        if key in item
+                    }
                     for item in unexpected
                 ]
-                result["reason"] = f"unexpected completed tool items were emitted: {summary!r}"
+                result["reason"] = (
+                    f"unexpected completed tool items were emitted: {summary!r}"
+                )
                 return result
 
         message_text = "\n".join(
@@ -497,7 +644,9 @@ def run_case(
         )
         for marker in case.get("agent_message_contains", []):
             if marker not in message_text:
-                result["reason"] = f"agent message did not include expected marker {marker!r}"
+                result["reason"] = (
+                    f"agent message did not include expected marker {marker!r}"
+                )
                 return result
 
         fixture_error = validate_fixture(
@@ -521,26 +670,39 @@ def main() -> int:
     parser.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURE_ROOT)
     parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--timeout", type=float, default=180)
-    parser.add_argument("--case", action="append", help="run only this case id; repeatable")
+    parser.add_argument(
+        "--case", action="append", help="run only this case id; repeatable"
+    )
     parser.add_argument(
         "--report",
         type=Path,
         help="write a sanitized JSON summary (default: <fixture-root>/tool-test-report.json)",
     )
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--self-test", action="store_true", help="validate JSONL/event assertions without model calls")
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="validate JSONL/event assertions without model calls",
+    )
     args = parser.parse_args()
 
     if args.self_test:
         self_test()
-        print("PASS runner JSONL event, exact MCP identity/arguments, patch path, and no-prose assertions")
+        print(
+            "PASS runner JSONL event, exact MCP identity/arguments, patch path, and no-prose assertions"
+        )
         return 0
 
     if not args.codex.is_file():
-        print(f"FAIL: native Codex executable is missing: {args.codex}", file=sys.stderr)
+        print(
+            f"FAIL: native Codex executable is missing: {args.codex}", file=sys.stderr
+        )
         return 2
     if not os.access(args.codex, os.X_OK):
-        print(f"FAIL: native Codex executable is not executable: {args.codex}", file=sys.stderr)
+        print(
+            f"FAIL: native Codex executable is not executable: {args.codex}",
+            file=sys.stderr,
+        )
         return 2
     try:
         manifest = json.loads(args.cases.read_text(encoding="utf-8"))
@@ -574,7 +736,9 @@ def main() -> int:
         target = f" {case['server']}.{case['tool']}" if case.get("server") else ""
         outcome_label = f" [{outcome['outcome']}]" if outcome.get("outcome") else ""
         reason = f" — {outcome['reason']}" if outcome.get("reason") else ""
-        print(f"{outcome['status'].upper()} {case['id']}:{target}{outcome_label}{reason}")
+        print(
+            f"{outcome['status'].upper()} {case['id']}:{target}{outcome_label}{reason}"
+        )
 
     if args.dry_run:
         return 0
@@ -613,7 +777,9 @@ def main() -> int:
     temporary_report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     temporary_report.replace(report_path)
     print(f"REPORT: sanitized results saved to {report_path}")
-    print(f"RESULT: {passed}/{len(outcomes)} tool dispatches passed; {limitations} platform limitations")
+    print(
+        f"RESULT: {passed}/{len(outcomes)} tool dispatches passed; {limitations} platform limitations"
+    )
     return 0 if passed == len(outcomes) else 1
 
 

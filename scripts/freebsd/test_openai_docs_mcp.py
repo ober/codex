@@ -32,7 +32,9 @@ class Client:
         self.session: str | None = None
         self.request_id = 0
 
-    def request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    def request(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method}
         if params is not None:
             payload["params"] = params
@@ -66,7 +68,9 @@ class Client:
             return {}
         response_value = parse_response(raw)
         if response_value.get("error"):
-            raise RuntimeError(f"MCP {method} returned JSON-RPC error: {response_value['error']}")
+            raise RuntimeError(
+                f"MCP {method} returned JSON-RPC error: {response_value['error']}"
+            )
         return response_value.get("result", {})
 
     def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -83,14 +87,19 @@ def text_result(result: dict[str, Any]) -> str:
 
 def main() -> int:
     client = Client()
-    initialize = client.request("initialize", {
-        "protocolVersion": PROTOCOL,
-        "capabilities": {},
-        "clientInfo": {"name": "codex-freebsd-mcp-read-test", "version": "1"},
-    })
+    initialize = client.request(
+        "initialize",
+        {
+            "protocolVersion": PROTOCOL,
+            "capabilities": {},
+            "clientInfo": {"name": "codex-freebsd-mcp-read-test", "version": "1"},
+        },
+    )
     server_info = initialize.get("serverInfo", {})
     if server_info.get("name") != "openai-docs-mcp":
-        raise AssertionError(f"unexpected MCP server identity: {server_info.get('name')!r}")
+        raise AssertionError(
+            f"unexpected MCP server identity: {server_info.get('name')!r}"
+        )
     client.request("notifications/initialized")
     catalog = client.request("tools/list")
     tools = {tool.get("name"): tool for tool in catalog.get("tools", [])}
@@ -119,20 +128,40 @@ def main() -> int:
     }
     for name, tool in tools.items():
         annotations = tool.get("annotations", {})
-        if annotations.get("readOnlyHint") is not True or annotations.get("destructiveHint") is not False:
-            raise AssertionError(f"{name} is not annotated read-only and non-destructive")
+        if (
+            annotations.get("readOnlyHint") is not True
+            or annotations.get("destructiveHint") is not False
+        ):
+            raise AssertionError(
+                f"{name} is not annotated read-only and non-destructive"
+            )
         schema = tool.get("inputSchema", {})
         properties = set(schema.get("properties", {}))
         required = set(schema.get("required", []))
-        if properties != expected_properties[name] or required != expected_required[name]:
-            raise AssertionError(f"{name} argument schema differs: properties={sorted(properties)}, required={sorted(required)}")
+        if (
+            properties != expected_properties[name]
+            or required != expected_required[name]
+        ):
+            raise AssertionError(
+                f"{name} argument schema differs: properties={sorted(properties)}, required={sorted(required)}"
+            )
 
     calls = [
         ("list_openai_docs", {"limit": 3}, "https://"),
         ("search_openai_docs", {"query": "Responses API", "limit": 2}, "responses"),
-        ("fetch_openai_doc", {"url": "https://developers.openai.com/api/docs/guides/tools-connectors-mcp"}, "# MCP servers"),
+        (
+            "fetch_openai_doc",
+            {
+                "url": "https://developers.openai.com/api/docs/guides/tools-connectors-mcp"
+            },
+            "# MCP servers",
+        ),
         ("list_api_endpoints", {}, "/responses"),
-        ("get_openapi_spec", {"url": "https://api.openai.com/v1/responses", "codeExamplesOnly": True}, "Create a model response"),
+        (
+            "get_openapi_spec",
+            {"url": "https://api.openai.com/v1/responses", "codeExamplesOnly": True},
+            "Create a model response",
+        ),
     ]
     for name, arguments, marker in calls:
         result = client.call(name, arguments)
@@ -140,10 +169,14 @@ def main() -> int:
             raise AssertionError(f"{name} returned isError=true")
         body = text_result(result)
         if marker.lower() not in body.lower():
-            raise AssertionError(f"{name} result omitted its expected content marker {marker!r}")
+            raise AssertionError(
+                f"{name} result omitted its expected content marker {marker!r}"
+            )
         print(f"PASS {name}: non-error result; expected content marker present")
 
-    print(f"PASS OpenAI Developer Docs MCP {server_info.get('version')}: {len(tools)} read-only schemas and {len(calls)} actual calls")
+    print(
+        f"PASS OpenAI Developer Docs MCP {server_info.get('version')}: {len(tools)} read-only schemas and {len(calls)} actual calls"
+    )
     return 0
 
 

@@ -90,7 +90,9 @@ def project_schema(node: dict[str, Any]) -> dict[str, Any]:
             continue
         value = node[key]
         if key == "tools" and isinstance(value, list):
-            projected[key] = [project_schema(tool) for tool in value if isinstance(tool, dict)]
+            projected[key] = [
+                project_schema(tool) for tool in value if isinstance(tool, dict)
+            ]
         else:
             projected[key] = value
     return projected
@@ -119,7 +121,11 @@ def nested_schema_groups(value: Any) -> list[dict[str, Any]]:
 
 def schema_count(value: Any) -> int:
     if isinstance(value, dict):
-        if "name" in value and "type" in value and not isinstance(value.get("tools"), list):
+        if (
+            "name" in value
+            and "type" in value
+            and not isinstance(value.get("tools"), list)
+        ):
             return 1
         return sum(schema_count(child) for child in value.values())
     if isinstance(value, list):
@@ -134,7 +140,9 @@ def configured_jerboa_environment(config_path: Path) -> dict[str, str]:
     server = config.get("mcp_servers", {}).get("jerboa")
     expected_command = str(Path.home() / ".local/bin/jmcp")
     if not isinstance(server, dict) or server.get("command") != expected_command:
-        raise ValueError("configured Jerboa server command did not match the expected local jmcp executable")
+        raise ValueError(
+            "configured Jerboa server command did not match the expected local jmcp executable"
+        )
     configured_env = server.get("env", {})
     if not isinstance(configured_env, dict):
         raise ValueError("configured Jerboa environment was not a TOML table")
@@ -152,8 +160,7 @@ def shape_summary(value: Any, depth: int = 0) -> Any:
         result: dict[str, Any] = {"keys": keys}
         if depth < 5:
             result["children"] = {
-                key: shape_summary(value[key], depth + 1)
-                for key in keys
+                key: shape_summary(value[key], depth + 1) for key in keys
             }
         return result
     if isinstance(value, list):
@@ -197,15 +204,23 @@ def make_handler(capture: SchemaCapture) -> type[BaseHTTPRequestHandler]:
                         capture.request_shape = shape_summary(body)
                 tools = body.get("tools") if isinstance(body, dict) else None
                 if not isinstance(tools, list):
-                    tools = nested_schema_groups(body.get("input", [])) if isinstance(body, dict) else []
+                    tools = (
+                        nested_schema_groups(body.get("input", []))
+                        if isinstance(body, dict)
+                        else []
+                    )
                     with capture.lock:
-                        capture.schema_source = "nested structured input" if tools else None
+                        capture.schema_source = (
+                            "nested structured input" if tools else None
+                        )
                 else:
                     with capture.lock:
                         capture.schema_source = "top-level tools field"
                 if not tools:
                     with capture.lock:
-                        capture.error = "outgoing request exposed no structured tool schemas"
+                        capture.error = (
+                            "outgoing request exposed no structured tool schemas"
+                        )
                 if not all(isinstance(tool, dict) for tool in tools):
                     raise ValueError("tool schema entries were not JSON objects")
                 # Keep only actual schema fields; never persist instructions,
@@ -215,7 +230,9 @@ def make_handler(capture: SchemaCapture) -> type[BaseHTTPRequestHandler]:
                     capture.tools = sanitized
             except Exception as error:  # surfaced after CLI exits
                 with capture.lock:
-                    capture.error = f"request capture failed: {type(error).__name__}: {error}"
+                    capture.error = (
+                        f"request capture failed: {type(error).__name__}: {error}"
+                    )
                 self.send_error(400)
                 return
 
@@ -242,7 +259,9 @@ def capture_native_schema(
     server_thread.start()
     base_url = f"http://127.0.0.1:{server.server_port}/v1"
 
-    with tempfile.TemporaryDirectory(prefix="codex-local-schema-capture-") as codex_home:
+    with tempfile.TemporaryDirectory(
+        prefix="codex-local-schema-capture-"
+    ) as codex_home:
         config = f'''model = "{MODEL}"
 model_provider = "freebsd_schema_capture"
 
@@ -255,11 +274,11 @@ env_key = "OPENAI_API_KEY"
 '''
         if include_jerboa:
             env = configured_jerboa_environment(config_path)
-            config += f'''[mcp_servers.jerboa]
+            config += f"""[mcp_servers.jerboa]
 enabled = true
 command = {json.dumps(str(Path.home() / ".local/bin/jmcp"))}
 args = []
-'''
+"""
             if env:
                 inline_env = ", ".join(
                     f"{key} = {json.dumps(value)}" for key, value in sorted(env.items())
@@ -310,8 +329,13 @@ args = []
                 continue
             item = event.get("item") if isinstance(event, dict) else None
             if isinstance(item, dict) and item.get("type") == "error":
-                print(f"native error item: {item.get('message', item.get('error', 'unknown'))}")
-            if isinstance(event, dict) and event.get("type") in {"error", "turn.failed"}:
+                print(
+                    f"native error item: {item.get('message', item.get('error', 'unknown'))}"
+                )
+            if isinstance(event, dict) and event.get("type") in {
+                "error",
+                "turn.failed",
+            }:
                 error = event.get("error", event.get("message", "unknown"))
                 print(f"native {event['type']}: {error}")
         if capture.error:
@@ -323,7 +347,10 @@ args = []
                 f"nested shape={capture.request_shape!r}"
             )
         for line in completed.stderr.splitlines():
-            if any(word in line.lower() for word in ("error", "failed", "invalid", "denied")):
+            if any(
+                word in line.lower()
+                for word in ("error", "failed", "invalid", "denied")
+            ):
                 print(line.replace(API_KEY, "[redacted-local-test-key]")[:1000])
         return 1
 
@@ -351,7 +378,9 @@ args = []
         item = event.get("item") if isinstance(event, dict) else None
         if isinstance(item, dict) and item.get("type") == "error":
             message = item.get("message")
-            if isinstance(message, str) and message.startswith("Code Mode is unavailable because failed to spawn code-mode host"):
+            if isinstance(message, str) and message.startswith(
+                "Code Mode is unavailable because failed to spawn code-mode host"
+            ):
                 startup_errors.append(message)
 
     artifact = {
@@ -364,7 +393,9 @@ args = []
         "startup_errors": startup_errors,
         "tools": capture.tools,
     }
-    output.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(
         f"PASS captured {schema_count(capture.tools)} outgoing tool schemas "
         f"in {len(capture.tools)} groups to {output} (CLI exit {completed.returncode})"
@@ -384,15 +415,21 @@ def main() -> int:
     )
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument(
-        "--include-jerboa", action=argparse.BooleanOptionalAction, default=True,
+        "--include-jerboa",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="initialize configured local Jerboa MCP and capture its advertised schemas",
     )
     parser.add_argument(
-        "--config", type=Path, default=Path.home() / ".codex/config.toml",
+        "--config",
+        type=Path,
+        default=Path.home() / ".codex/config.toml",
         help="read only the configured Jerboa command and non-credential path selectors",
     )
     args = parser.parse_args()
-    return capture_native_schema(args.codex, args.output, args.timeout, args.include_jerboa, args.config)
+    return capture_native_schema(
+        args.codex, args.output, args.timeout, args.include_jerboa, args.config
+    )
 
 
 if __name__ == "__main__":

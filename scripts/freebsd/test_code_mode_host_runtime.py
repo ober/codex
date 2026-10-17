@@ -23,9 +23,9 @@ PROCCONTROL = Path("/usr/bin/proccontrol")
 def probe_source(stress: bool) -> str:
     if stress:
         return (
-            'function hot(x) { return (x + 1) | 0; } '
-            'let value = 0; '
-            'for (let i = 0; i < 1000000; i++) value = hot(value); '
+            "function hot(x) { return (x + 1) | 0; } "
+            "let value = 0; "
+            "for (let i = 0; i < 1000000; i++) value = hot(value); "
             'text("DIRECT_HOST_JIT_STRESS:" + value);'
         )
     return f'text("{MARKER}");'
@@ -62,7 +62,9 @@ def read_frame(stream: Any, timeout: float) -> dict[str, Any]:
     return value
 
 
-def response_for(stream: Any, request_id: int, timeout: float, response_type: str) -> dict[str, Any]:
+def response_for(
+    stream: Any, request_id: int, timeout: float, response_type: str
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         event = read_frame(stream, max(0.01, deadline - time.monotonic()))
@@ -85,7 +87,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", type=Path)
     parser.add_argument("--timeout", type=float, default=20)
-    parser.add_argument("--self-test", action="store_true", help="check bounded hot-loop probe construction")
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="check bounded hot-loop probe construction",
+    )
     parser.add_argument(
         "--jit-stress",
         action="store_true",
@@ -105,8 +111,12 @@ def main() -> int:
             or 'text("DIRECT_HOST_JIT_STRESS:" + value);' not in source
             or JIT_MARKER != "DIRECT_HOST_JIT_STRESS:1000000"
         ):
-            raise AssertionError("JIT stress probe is not the expected bounded one-million-call fixture")
-        print("PASS direct-host JIT probe fixture: one million deterministic hot-function calls")
+            raise AssertionError(
+                "JIT stress probe is not the expected bounded one-million-call fixture"
+            )
+        print(
+            "PASS direct-host JIT probe fixture: one million deterministic hot-function calls"
+        )
         return 0
     if args.host is None:
         parser.error("--host is required unless --self-test is selected")
@@ -120,8 +130,17 @@ def main() -> int:
         host_command = [str(args.host), "--listen", "stdio"]
         if args.deny_wx:
             if not PROCCONTROL.is_file() or not os.access(PROCCONTROL, os.X_OK):
-                raise RuntimeError(f"native FreeBSD proccontrol is unavailable: {PROCCONTROL}")
-            host_command = [str(PROCCONTROL), "-m", "wxmap", "-s", "disable", *host_command]
+                raise RuntimeError(
+                    f"native FreeBSD proccontrol is unavailable: {PROCCONTROL}"
+                )
+            host_command = [
+                str(PROCCONTROL),
+                "-m",
+                "wxmap",
+                "-s",
+                "disable",
+                *host_command,
+            ]
         process = subprocess.Popen(
             host_command,
             stdin=subprocess.PIPE,
@@ -130,32 +149,46 @@ def main() -> int:
             start_new_session=True,
         )
         assert process.stdin is not None and process.stdout is not None
-        write_frame(process.stdin, {
-            "type": "connection/hello",
-            "supportedVersions": [1],
-            "requiredCapabilities": [],
-            "optionalCapabilities": [
-                "session-cell-execution-resource-limits",
-                "yield-observation",
-            ],
-        })
+        write_frame(
+            process.stdin,
+            {
+                "type": "connection/hello",
+                "supportedVersions": [1],
+                "requiredCapabilities": [],
+                "optionalCapabilities": [
+                    "session-cell-execution-resource-limits",
+                    "yield-observation",
+                ],
+            },
+        )
         hello = read_frame(process.stdout, args.timeout)
         if hello.get("type") != "connection/ready" or hello.get("selectedVersion") != 1:
             raise RuntimeError(f"unexpected code-mode handshake: {hello}")
 
-        write_frame(process.stdin, {
-            "type": "operation/request",
-            "id": 1,
-            "request": {"method": "session/open", "sessionId": SESSION_ID},
-        })
-        opened = expect_ok(response_for(process.stdout, 1, args.timeout, "operation/response"), "session/open")
-        if opened.get("type") != "session/ready" or opened.get("sessionId") != SESSION_ID:
+        write_frame(
+            process.stdin,
+            {
+                "type": "operation/request",
+                "id": 1,
+                "request": {"method": "session/open", "sessionId": SESSION_ID},
+            },
+        )
+        opened = expect_ok(
+            response_for(process.stdout, 1, args.timeout, "operation/response"),
+            "session/open",
+        )
+        if (
+            opened.get("type") != "session/ready"
+            or opened.get("sessionId") != SESSION_ID
+        ):
             raise RuntimeError(f"unexpected session/open result: {opened}")
 
         wx_status = None
         if args.jit_stress or args.deny_wx:
             if not PROCCONTROL.is_file() or not os.access(PROCCONTROL, os.X_OK):
-                raise RuntimeError(f"native FreeBSD proccontrol is unavailable: {PROCCONTROL}")
+                raise RuntimeError(
+                    f"native FreeBSD proccontrol is unavailable: {PROCCONTROL}"
+                )
             status = subprocess.run(
                 [str(PROCCONTROL), "-m", "wxmap", "-q", "-p", str(process.pid)],
                 check=False,
@@ -172,44 +205,62 @@ def main() -> int:
             if args.deny_wx and not (
                 "disabled on exec" in wx_status and "wxorx enforced" in wx_status
             ):
-                raise RuntimeError(f"the process-scoped W^X policy was not enforced: {wx_status!r}")
+                raise RuntimeError(
+                    f"the process-scoped W^X policy was not enforced: {wx_status!r}"
+                )
 
-        write_frame(process.stdin, {
-            "type": "operation/request",
-            "id": 2,
-            "request": {
-                "method": "session/execute",
-                "sessionId": SESSION_ID,
+        write_frame(
+            process.stdin,
+            {
+                "type": "operation/request",
+                "id": 2,
                 "request": {
-                    "tool_call_id": "freebsd-host-runtime-smoke",
-                    "enabled_tools": [],
-                    "source": probe_source(args.jit_stress or args.deny_wx),
-                    "yield_time_ms": 10_000,
-                    "max_output_tokens": 128,
+                    "method": "session/execute",
+                    "sessionId": SESSION_ID,
+                    "request": {
+                        "tool_call_id": "freebsd-host-runtime-smoke",
+                        "enabled_tools": [],
+                        "source": probe_source(args.jit_stress or args.deny_wx),
+                        "yield_time_ms": 10_000,
+                        "max_output_tokens": 128,
+                    },
                 },
             },
-        })
-        initial = response_for(process.stdout, 2, args.timeout, "execute/initialResponse")
+        )
+        initial = response_for(
+            process.stdout, 2, args.timeout, "execute/initialResponse"
+        )
         runtime = expect_ok(initial, "session/execute")
         terminal = runtime.get("Result")
         if not isinstance(terminal, dict):
             raise RuntimeError(f"host did not return a terminal Result: {runtime}")
         if terminal.get("error_text") is not None:
-            raise RuntimeError(f"JavaScript evaluation failed: {terminal['error_text']}")
+            raise RuntimeError(
+                f"JavaScript evaluation failed: {terminal['error_text']}"
+            )
         content = terminal.get("content_items")
         expected_output = JIT_MARKER if args.jit_stress or args.deny_wx else MARKER
         if not isinstance(content, list) or not any(
             item.get("type") == "input_text" and item.get("text") == expected_output
-            for item in content if isinstance(item, dict)
+            for item in content
+            if isinstance(item, dict)
         ):
-            raise RuntimeError(f"host result did not contain the exact JS output marker: {content}")
+            raise RuntimeError(
+                f"host result did not contain the exact JS output marker: {content}"
+            )
 
-        write_frame(process.stdin, {
-            "type": "operation/request",
-            "id": 3,
-            "request": {"method": "session/shutdown", "sessionId": SESSION_ID},
-        })
-        closed = expect_ok(response_for(process.stdout, 3, args.timeout, "operation/response"), "session/shutdown")
+        write_frame(
+            process.stdin,
+            {
+                "type": "operation/request",
+                "id": 3,
+                "request": {"method": "session/shutdown", "sessionId": SESSION_ID},
+            },
+        )
+        closed = expect_ok(
+            response_for(process.stdout, 3, args.timeout, "operation/response"),
+            "session/shutdown",
+        )
         if closed.get("type") != "session/closed":
             raise RuntimeError(f"unexpected shutdown result: {closed}")
         process.stdin.close()
@@ -227,7 +278,9 @@ def main() -> int:
                 f"exact checksum, process W^X status={wx_status}, session shutdown"
             )
         else:
-            print("PASS native code-mode host IPC: handshake, session open, V8 JS evaluation, exact output, session shutdown")
+            print(
+                "PASS native code-mode host IPC: handshake, session open, V8 JS evaluation, exact output, session shutdown"
+            )
         return 0
     except Exception as error:
         print(f"FAIL native code-mode host IPC: {type(error).__name__}: {error}")

@@ -47,7 +47,10 @@ def sha256(path: Path) -> str:
 
 
 def valid_command_execution(item: Any, marker: str) -> bool:
-    if not isinstance(item, dict) or item.get("type") not in {"command_execution", "CommandExecution"}:
+    if not isinstance(item, dict) or item.get("type") not in {
+        "command_execution",
+        "CommandExecution",
+    }:
         return False
     # The rollout's item id is the command call id. Require it alongside the
     # command and result so prose or an unrelated completed item cannot pass.
@@ -57,7 +60,9 @@ def valid_command_execution(item: Any, marker: str) -> bool:
         return False
     output = item.get("aggregated_output")
     command = item.get("command")
-    command_text = " ".join(command) if isinstance(command, list) else str(command or "")
+    command_text = (
+        " ".join(command) if isinstance(command, list) else str(command or "")
+    )
     return marker in str(output or "") and marker in command_text
 
 
@@ -104,7 +109,9 @@ def sanitized_terminal_tail(terminal: bytearray) -> str:
     text = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1<redacted>", text)
     text = re.sub(r"\bsk-[A-Za-z0-9_-]{12,}\b", "<redacted-api-key>", text)
     text = re.sub(r"/home/[^\s/:]+/\.codex/auth\.json", "<redacted-auth-path>", text)
-    lines = [line.strip() for line in text.replace("\r", "\n").splitlines() if line.strip()]
+    lines = [
+        line.strip() for line in text.replace("\r", "\n").splitlines() if line.strip()
+    ]
     return " | ".join(lines[-12:])[-2400:]
 
 
@@ -115,8 +122,18 @@ def rollout_event_summary(records: list[dict[str, Any]]) -> list[dict[str, Any]]
     while stack:
         value = stack.pop()
         if isinstance(value, dict):
-            if value.get("type") in {"command_execution", "CommandExecution", "mcp_tool_call", "error", "agent_message"}:
-                row = {key: value[key] for key in ("type", "id", "status", "server", "tool", "exit_code") if key in value}
+            if value.get("type") in {
+                "command_execution",
+                "CommandExecution",
+                "mcp_tool_call",
+                "error",
+                "agent_message",
+            }:
+                row = {
+                    key: value[key]
+                    for key in ("type", "id", "status", "server", "tool", "exit_code")
+                    if key in value
+                }
                 output.append(row)
             stack.extend(value.values())
         elif isinstance(value, list):
@@ -132,7 +149,9 @@ def native_elf(path: Path) -> bool:
         text=True,
         timeout=10,
     )
-    return result.returncode == 0 and "FreeBSD" in result.stdout and "ELF" in result.stdout
+    return (
+        result.returncode == 0 and "FreeBSD" in result.stdout and "ELF" in result.stdout
+    )
 
 
 def procstat_image(pid: int) -> str:
@@ -144,7 +163,9 @@ def procstat_image(pid: int) -> str:
         timeout=10,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"procstat could not inspect the live TUI process (exit {result.returncode})")
+        raise RuntimeError(
+            f"procstat could not inspect the live TUI process (exit {result.returncode})"
+        )
     return result.stdout
 
 
@@ -168,6 +189,7 @@ def read_pty(fd: int, buffer: bytearray, deadline: float) -> None:
 
 def terminate_process(process: subprocess.Popen[bytes], master: int) -> None:
     """Reap only the exact process group started by this test."""
+
     def signal_group(sig: int) -> None:
         try:
             os.killpg(process.pid, sig)
@@ -203,7 +225,9 @@ def terminate_process(process: subprocess.Popen[bytes], master: int) -> None:
         while group_exists() and time.monotonic() < deadline:
             time.sleep(0.05)
     if group_exists():
-        raise RuntimeError("the test-owned TUI process group still has live descendants after cleanup")
+        raise RuntimeError(
+            "the test-owned TUI process group still has live descendants after cleanup"
+        )
     try:
         os.close(master)
     except OSError:
@@ -219,12 +243,21 @@ def self_test() -> None:
         "command": ["sh", "-c", "printf TUI_PTY_TOOL_RAN"],
         "aggregated_output": "TUI_PTY_TOOL_RAN\n",
     }
-    if not contains_tool_event([{
-        "timestamp": "fixture",
-        "item": {"type": "event_msg", "payload": {
-            "type": "item_completed", "item": completed,
-        }},
-    }], TOOL_OUTPUT):
+    if not contains_tool_event(
+        [
+            {
+                "timestamp": "fixture",
+                "item": {
+                    "type": "event_msg",
+                    "payload": {
+                        "type": "item_completed",
+                        "item": completed,
+                    },
+                },
+            }
+        ],
+        TOOL_OUTPUT,
+    ):
         raise AssertionError("typed completed tool event fixture was not recognized")
     # Native rollout JSON serializes the Rust ThreadItemDetails variant as
     # CommandExecution inside event_msg.payload.item. This is the shape seen in
@@ -237,11 +270,16 @@ def self_test() -> None:
         "command": ["sh", "-c", "printf TUI_PTY_TOOL_RAN"],
         "aggregated_output": "TUI_PTY_TOOL_RAN\n",
     }
-    if not contains_tool_event([{
-        "timestamp": "fixture",
-        "type": "event_msg",
-        "payload": {"type": "item_completed", "item": native_completed},
-    }], TOOL_OUTPUT):
+    if not contains_tool_event(
+        [
+            {
+                "timestamp": "fixture",
+                "type": "event_msg",
+                "payload": {"type": "item_completed", "item": native_completed},
+            }
+        ],
+        TOOL_OUTPUT,
+    ):
         raise AssertionError("native CommandExecution rollout item was not recognized")
     for wrong in (
         {**completed, "type": "agent_message"},
@@ -256,42 +294,62 @@ def self_test() -> None:
         {**completed, "command": ["printf", "unrelated"]},
     ):
         if contains_tool_event([{"item": wrong}], TOOL_OUTPUT):
-            raise AssertionError("TUI tool event parser accepted prose, failure, or unrelated command")
+            raise AssertionError(
+                "TUI tool event parser accepted prose, failure, or unrelated command"
+            )
     # Ensure assistant text that merely repeats the marker cannot stand in for
     # an actual typed command item.
-    if contains_tool_event([{"type": "agent_message", "message": TOOL_OUTPUT}], TOOL_OUTPUT):
+    if contains_tool_event(
+        [{"type": "agent_message", "message": TOOL_OUTPUT}], TOOL_OUTPUT
+    ):
         raise AssertionError("assistant text was mistaken for an executed tool")
-    print("PASS interactive PTY evidence self-test: typed success required; prose/failures rejected")
+    print(
+        "PASS interactive PTY evidence self-test: typed success required; prose/failures rejected"
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--codex", type=Path, default=DEFAULT_CODEX)
     parser.add_argument("--scratch-root", type=Path, default=DEFAULT_SCRATCH_ROOT)
-    parser.add_argument("--timeout", type=float, default=180, help="overall bounded live-test timeout")
+    parser.add_argument(
+        "--timeout", type=float, default=180, help="overall bounded live-test timeout"
+    )
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         self_test()
         return 0
     if sys.platform != "freebsd15":
-        raise RuntimeError(f"run this test with native FreeBSD Python; got {sys.platform!r}")
+        raise RuntimeError(
+            f"run this test with native FreeBSD Python; got {sys.platform!r}"
+        )
 
     codex = args.codex.resolve(strict=True)
     if codex.name != "codex-freebsd":
-        raise RuntimeError(f"expected the native executable basename codex-freebsd, got {codex.name!r}")
+        raise RuntimeError(
+            f"expected the native executable basename codex-freebsd, got {codex.name!r}"
+        )
     helper = codex.with_name("codex-code-mode-host-freebsd")
     if not helper.is_file() or not os.access(helper, os.X_OK):
         raise RuntimeError(f"native sibling Code Mode helper is unavailable: {helper}")
     if not native_elf(codex) or not native_elf(helper):
-        raise RuntimeError("CLI and companion must both be native FreeBSD ELF executables")
-    source_auth_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
+        raise RuntimeError(
+            "CLI and companion must both be native FreeBSD ELF executables"
+        )
+    source_auth_home = Path(
+        os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
+    ).expanduser()
     source_auth = source_auth_home / "auth.json"
     if not source_auth.is_file():
-        raise RuntimeError(f"file-backed account auth is unavailable at {source_auth}; no credential was printed")
+        raise RuntimeError(
+            f"file-backed account auth is unavailable at {source_auth}; no credential was printed"
+        )
     args.scratch_root.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory(prefix="codex-freebsd-tui-pty-", dir=args.scratch_root) as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="codex-freebsd-tui-pty-", dir=args.scratch_root
+    ) as temporary:
         root = Path(temporary)
         workspace = root / "workspace"
         workspace.mkdir(mode=0o700)
@@ -312,9 +370,15 @@ def main() -> int:
         environment["TERM"] = "xterm-256color"
         # Use native FreeBSD utility directories only; in particular, do not
         # fall through to ~/.local/bin where `codex` is the Linux default.
-        environment["PATH"] = os.pathsep.join((
-            "/usr/local/bin", "/bin", "/usr/bin", "/usr/sbin", "/sbin",
-        ))
+        environment["PATH"] = os.pathsep.join(
+            (
+                "/usr/local/bin",
+                "/bin",
+                "/usr/bin",
+                "/usr/sbin",
+                "/sbin",
+            )
+        )
         # Force authentication through the isolated auth.json copy; do not
         # inherit API-key or alternate-endpoint environment overrides.
         for name in (
@@ -331,11 +395,17 @@ def main() -> int:
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
         os.set_blocking(master, False)
         command = [
-            str(codex), "--model", MODEL,
-            "--sandbox", "danger-full-access",
-            "--ask-for-approval", "never",
-            "--cd", str(workspace),
-            "--enable", "code_mode_host",
+            str(codex),
+            "--model",
+            MODEL,
+            "--sandbox",
+            "danger-full-access",
+            "--ask-for-approval",
+            "never",
+            "--cd",
+            str(workspace),
+            "--enable",
+            "code_mode_host",
         ]
         process: subprocess.Popen[bytes] | None = None
         terminal = bytearray()
@@ -352,7 +422,9 @@ def main() -> int:
             os.close(slave)
             live_image = procstat_image(process.pid)
             if str(codex) not in live_image:
-                raise RuntimeError("procstat did not identify the launched native codex-freebsd executable")
+                raise RuntimeError(
+                    "procstat did not identify the launched native codex-freebsd executable"
+                )
 
             start_deadline = time.monotonic() + min(args.timeout, 45)
             while time.monotonic() < start_deadline:
@@ -360,7 +432,9 @@ def main() -> int:
                 if PLACEHOLDER in terminal:
                     break
                 if process.poll() is not None:
-                    raise RuntimeError(f"interactive TUI exited before its composer appeared (status {process.returncode})")
+                    raise RuntimeError(
+                        f"interactive TUI exited before its composer appeared (status {process.returncode})"
+                    )
             else:
                 raise TimeoutError("interactive TUI did not render its composer prompt")
 
@@ -369,38 +443,63 @@ def main() -> int:
             # typed draft is visible, then pause beyond the startup paste
             # ambiguity window before sending Enter as a separate keypress.
             echo_deadline = time.monotonic() + 30
-            while command_marker.encode("utf-8") not in terminal and time.monotonic() < echo_deadline:
+            while (
+                command_marker.encode("utf-8") not in terminal
+                and time.monotonic() < echo_deadline
+            ):
                 read_pty(master, terminal, min(echo_deadline, time.monotonic() + 0.5))
             if command_marker.encode("utf-8") not in terminal:
-                raise TimeoutError("interactive composer did not render the submitted draft")
+                raise TimeoutError(
+                    "interactive composer did not render the submitted draft"
+                )
             time.sleep(0.25)
             os.write(master, b"\r")
             deadline = time.monotonic() + args.timeout
             tool_event_seen = False
             while time.monotonic() < deadline:
                 read_pty(master, terminal, min(deadline, time.monotonic() + 0.5))
-                if marker_file.is_file() and marker_file.read_text(encoding="utf-8") == file_content:
+                if (
+                    marker_file.is_file()
+                    and marker_file.read_text(encoding="utf-8") == file_content
+                ):
                     records = parse_rollouts(isolated_home)
                     if contains_tool_event(records, command_marker):
                         tool_event_seen = True
                         break
                 if process.poll() is not None:
                     break
-            if not marker_file.is_file() or marker_file.read_text(encoding="utf-8") != file_content:
+            if (
+                not marker_file.is_file()
+                or marker_file.read_text(encoding="utf-8") != file_content
+            ):
                 records = parse_rollouts(isolated_home)
                 print("TUI_FAILURE_TERMINAL_TAIL: " + sanitized_terminal_tail(terminal))
-                print("TUI_FAILURE_ROLLOUT_EVENTS: " + json.dumps(rollout_event_summary(records), sort_keys=True))
-                raise RuntimeError("interactive TUI did not create the exact scratch marker file")
+                print(
+                    "TUI_FAILURE_ROLLOUT_EVENTS: "
+                    + json.dumps(rollout_event_summary(records), sort_keys=True)
+                )
+                raise RuntimeError(
+                    "interactive TUI did not create the exact scratch marker file"
+                )
             if not tool_event_seen:
                 records = parse_rollouts(isolated_home)
                 print("TUI_FAILURE_TERMINAL_TAIL: " + sanitized_terminal_tail(terminal))
-                print("TUI_FAILURE_ROLLOUT_EVENTS: " + json.dumps(rollout_event_summary(records), sort_keys=True))
-                raise RuntimeError("rollout contained no completed command_execution matching the unique command/output marker")
+                print(
+                    "TUI_FAILURE_ROLLOUT_EVENTS: "
+                    + json.dumps(rollout_event_summary(records), sort_keys=True)
+                )
+                raise RuntimeError(
+                    "rollout contained no completed command_execution matching the unique command/output marker"
+                )
 
             # The marker proves a real dispatched command; the rollout item
             # proves successful tool completion; this is a full TUI PTY path.
-            print("PASS native interactive TUI PTY: composer rendered and prompt submitted through the terminal")
-            print("PASS native Code Mode dispatch: completed command_execution event and exact scratch file contents")
+            print(
+                "PASS native interactive TUI PTY: composer rendered and prompt submitted through the terminal"
+            )
+            print(
+                "PASS native Code Mode dispatch: completed command_execution event and exact scratch file contents"
+            )
             print(f"NATIVE_TUI_CLI_SHA256: {sha256(codex)}")
             print(f"NATIVE_TUI_HOST_SHA256: {sha256(helper)}")
             os.write(master, b"\x03")
@@ -427,9 +526,15 @@ def main() -> int:
             isolated_home / "app-server-daemon" / "daemon.pid",
             isolated_home / "app-server-control" / "server.sock",
         ]
-        leftovers = [str(path.relative_to(isolated_home)) for path in daemon_artifacts if path.exists()]
+        leftovers = [
+            str(path.relative_to(isolated_home))
+            for path in daemon_artifacts
+            if path.exists()
+        ]
         if leftovers:
-            raise RuntimeError(f"unexpected daemon artifacts remained in isolated CODEX_HOME: {leftovers}")
+            raise RuntimeError(
+                f"unexpected daemon artifacts remained in isolated CODEX_HOME: {leftovers}"
+            )
     return 0
 
 
