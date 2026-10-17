@@ -10,6 +10,7 @@ directory under ~/work.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.server
 import json
 import os
@@ -57,9 +58,11 @@ class McpClient:
         })
         if "error" in init:
             raise RuntimeError(f"MCP initialize failed: {init['error']}")
+        self.initialize_result = init.get("result", {})
         self.notify("notifications/initialized")
         listed = self.request("tools/list", {})
-        self.tools = {tool["name"] for tool in listed.get("result", {}).get("tools", [])}
+        self.tools_result = listed.get("result", {})
+        self.tools = {tool["name"] for tool in self.tools_result.get("tools", [])}
 
     def notify(self, method: str) -> None:
         assert self.proc.stdin
@@ -102,6 +105,38 @@ class McpClient:
             self.proc.terminate()
             self.proc.wait(timeout=5)
 
+
+def executable_provenance(command: str, env: dict[str, str], client: McpClient) -> dict[str, Any]:
+    """Describe the exact provider/runtime used without exposing its environment."""
+    executable = Path(command).expanduser().resolve(strict=True)
+    jerboa = Path(env["JERBOA_MCP_JERBOA_PATH"]).expanduser().resolve(strict=True)
+    home = Path(env["JERBOA_HOME"]).expanduser().resolve(strict=True)
+    library_candidates = (home / "lib" / "libjerboa_native.so", home / "libjerboa_native.so")
+    library = next((path.resolve() for path in library_candidates if path.is_file()), None)
+
+    def digest(path: Path) -> str:
+        value = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                value.update(chunk)
+        return value.hexdigest()
+
+    return {
+        "configured_command": str(command),
+        "resolved_executable": str(executable),
+        "executable_sha256": digest(executable),
+        "jerboa_home": str(home),
+        "jerboa_binary": str(jerboa),
+        "jerboa_binary_sha256": digest(jerboa),
+        "native_library": str(library) if library else None,
+        "native_library_sha256": digest(library) if library else None,
+        "server_info": client.initialize_result.get("serverInfo"),
+        "protocol_version": client.initialize_result.get("protocolVersion"),
+        "tool_count": len(client.tools),
+        "tool_names_sha256": hashlib.sha256(
+            "\n".join(sorted(client.tools)).encode("utf-8")
+        ).hexdigest(),
+    }
 
 def result_text(response: dict[str, Any]) -> str:
     result = response.get("result", {})

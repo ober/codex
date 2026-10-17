@@ -23,7 +23,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from test_jerboa_nonwriters import McpClient, build_nonwriter_cases, prepare_fixture, start_completion_server
+from test_jerboa_nonwriters import (
+    McpClient,
+    build_nonwriter_cases,
+    executable_provenance,
+    prepare_fixture,
+    start_completion_server,
+)
 from test_tools import tiny_test_png
 
 MODEL = "gpt-5.6-luna"
@@ -481,6 +487,10 @@ def main() -> int:
                     f"missing={sorted(provider_tool_names - set(tool_names))}, "
                     f"unexpected={sorted(set(tool_names) - provider_tool_names)}"
                 )
+            print("JERBOA_PROVIDER_PROVENANCE: " + json.dumps(
+                executable_provenance(str(JERBOA_SERVER), mcp_fixture_env, schema_probe),
+                sort_keys=True,
+            ))
             jerboa_tools_to_enable = sorted(set(tool_names))
             jerboa_environment_keys = (
                 "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "TMPDIR", "JERBOA_HOME",
