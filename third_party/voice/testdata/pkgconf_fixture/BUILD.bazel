@@ -1,3 +1,4 @@
+load("@rules_python//python:defs.bzl", "py_test")
 load("//third_party/voice:windows_native.bzl", "windows_pkg_config")
 
 filegroup(
@@ -14,8 +15,9 @@ windows_pkg_config(
     installed_pkgconf = ":installed_image",
 )
 
-sh_test(
+py_test(
     name = "provider_runfiles_test",
-    srcs = ["provider_runfiles_test.sh"],
+    srcs = ["provider_runfiles_test.py"],
     data = [":provider"],
+    deps = ["@rules_python//python/runfiles"],
 )

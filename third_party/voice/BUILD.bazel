@@ -127,11 +127,9 @@ alias(
     name = "pkg_config",
     actual = select({
         ":windows_pkgconf_only_enabled": ":windows_pkg_config_only",
-        "//conditions:default": select({
-            ":windows_x86_64": ":windows_tools_x86_64",
-            ":windows_aarch64": ":windows_tools_aarch64",
-            "//conditions:default": ":pkg_config_unix",
-        }),
+        ":windows_x86_64": ":windows_tools_x86_64",
+        ":windows_aarch64": ":windows_tools_aarch64",
+        "//conditions:default": ":pkg_config_unix",
     }),
     tags = ["manual"],
     visibility = ["//visibility:public"],
