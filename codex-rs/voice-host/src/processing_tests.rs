@@ -94,11 +94,13 @@ fn real_encoder_produces_twenty_millisecond_opus_packets() {
     for rate in [44_100, 48_000] {
         let mut processor = Processor::new(rate, /*output_rate*/ 48_000).unwrap();
         let mut packets = Vec::new();
+        let start = Instant::now();
         for block in 0..40 {
+            // Keep the sample clock contiguous even when CI processing is slower than real time.
             let mut frame = Frame {
                 samples: [0.0; 256],
                 len: 256,
-                at: Instant::now(),
+                at: start + Duration::from_secs_f64((block * 256) as f64 / f64::from(rate)),
                 generation: 2,
             };
             for (index, sample) in frame.samples.iter_mut().enumerate() {
@@ -109,7 +111,7 @@ fn real_encoder_produces_twenty_millisecond_opus_packets() {
             }
             packets.extend(processor.capture(&frame, || frame.at).unwrap());
         }
-        assert!(!packets.is_empty());
+        assert!(!packets.is_empty(), "no encoded packets at {rate} Hz");
         let mut decoder = opus::Decoder::new(/*sample_rate*/ 48_000, opus::Channels::Mono).unwrap();
         let mut energy = 0.0_f32;
         for packet in packets {
