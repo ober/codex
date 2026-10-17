@@ -12,6 +12,38 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Reclaim unused Android SDK space on public Linux runners
+      if: runner.os == 'Linux' && runner.environment == 'github-hosted' && github.repository != 'openai/codex'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Disk space before Bazel setup (workspace filesystem):"
+        df -h "$GITHUB_WORKSPACE"
+        df -i "$GITHUB_WORKSPACE"
+
+        # Bazel jobs in this repository target desktop platforms and do not
+        # consume the Android SDK preinstalled on GitHub-hosted Ubuntu images.
+        # Restrict removal to the documented runner-image path and refuse
+        # symlinks so an environment override cannot redirect this cleanup.
+        android_sdk=/usr/local/lib/android/sdk
+        if [[ "${ANDROID_HOME:-}" != "$android_sdk" || ! -d "$android_sdk" || -L "$android_sdk" ]]; then
+          echo "Android SDK cleanup skipped: expected the runner-image SDK at $android_sdk"
+        else
+          resolved_android_sdk="$(realpath -e -- "$android_sdk")"
+          if [[ "$resolved_android_sdk" != "$android_sdk" ]]; then
+            echo "Android SDK cleanup skipped: resolved path differs from the expected runner-image path"
+          else
+            echo "Removing unused runner-image Android SDK ($android_sdk):"
+            du -sh -- "$android_sdk"
+            sudo rm -rf --one-file-system -- "$android_sdk"
+          fi
+        fi
+
+        echo "Disk space after Bazel setup cleanup (workspace filesystem):"
+        df -h "$GITHUB_WORKSPACE"
+        df -i "$GITHUB_WORKSPACE"
+
     - id: setup_ci
       uses: ./.github/actions/setup-ci
 
