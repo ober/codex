@@ -73,7 +73,11 @@ The patched Jerboa provider is installed side-by-side at
 `~/.local/lib/jerboa-mcp-freebsd/69c6992b531ac213c7e0332708832c2cd50ae2e1/`
 (source commit `69c6992b531ac213c7e0332708832c2cd50ae2e1`, version 0.13.23,
 staged `jmcp` SHA-256
-`9d2602136b0ce71cd1a34bb6193ce0f86e36f8d034019f904a55443751580faf`). The
+`9d2602136b0ce71cd1a34bb6193ce0f86e36f8d034019f904a55443751580faf`, matching
+`bin/jerboa` SHA-256
+`0357c5cda6e141671c29794630b0528d85227d9c412721eb04fec9dd61f1aee8` and
+`lib/libjerboa_native.so` SHA-256
+`24cda139d89d9ce2f4681663ef52cb184caa10d9d9fa658a14cc7cb46ccf2633`). The
 package includes its matching runtime, Chez files, libraries, and licenses;
 its symlinks resolve inside the package. The active Jerboa server config points
 to this package and its matching runtime; the prior `~/.local/bin/jerboa` and
