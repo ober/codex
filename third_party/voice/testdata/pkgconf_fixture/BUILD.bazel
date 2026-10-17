@@ -1,0 +1,21 @@
+load("//third_party/voice:windows_native.bzl", "windows_pkg_config")
+
+filegroup(
+    name = "installed_image",
+    srcs = [
+        "pkgconf-image/LICENSE",
+        "pkgconf-image/native/libpkgconf-3.dll",
+        "pkgconf-image/native/pkgconf.exe",
+    ],
+)
+
+windows_pkg_config(
+    name = "provider",
+    installed_pkgconf = ":installed_image",
+)
+
+sh_test(
+    name = "provider_runfiles_test",
+    srcs = ["provider_runfiles_test.sh"],
+    data = [":provider"],
+)

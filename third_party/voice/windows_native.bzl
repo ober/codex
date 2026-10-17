@@ -101,6 +101,24 @@ windows_build_tools = rule(
     },
 )
 
+def _windows_pkg_config_impl(ctx):
+    installed = ctx.files.installed_pkgconf
+    executables = [file for file in installed if file.basename == "pkgconf.exe"]
+    if len(executables) != 1:
+        fail("Select an installed pkgconf-only repository containing exactly one pkgconf.exe")
+    executable = executables[0]
+    return [DefaultInfo(
+        files = depset([executable]),
+        runfiles = ctx.runfiles(files = installed),
+    )]
+
+windows_pkg_config = rule(
+    implementation = _windows_pkg_config_impl,
+    attrs = {
+        "installed_pkgconf": attr.label(mandatory = True, allow_files = True),
+    },
+)
+
 def _windows_prefix_impl(ctx):
     tools = ctx.attr.build_tools[WindowsBuildToolsInfo]
     prefix = ctx.actions.declare_file(ctx.label.name + "/prefix.tar")

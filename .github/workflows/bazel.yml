@@ -20,7 +20,7 @@ jobs:
     # signal without putting PR latency back on the critical path. When
     # Code-mode unit tests run on every Bazel target. When authenticated RBE
     # is available, the Windows-cross shards exercise the source-built V8 path.
-    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || 120 }}
     strategy:
       fail-fast: false
       matrix:
@@ -143,7 +143,7 @@ jobs:
     # Split the Windows Bazel test leg across separate Windows hosts. Jobs with
     # BuildBuddy credentials use Linux RBE for build actions; test execution
     # remains on a Windows runner.
-    timeout-minutes: 30
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || 120 }}
     strategy:
       fail-fast: false
       matrix:
@@ -184,6 +184,16 @@ jobs:
           # not save it from every shard below; duplicate uploads would sit on
           # the PR-blocking critical path after the useful test work is done.
           cache-scope: bazel-test
+
+      - name: Prepare pinned pkgconf for local Windows GNU fallback
+        if: runner.os == 'Windows'
+        env:
+          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:BUILDBUDDY_API_KEY) {
+            & ./.github/scripts/setup-voice-windows-pkgconf.ps1
+          }
 
       - name: bazel test shard
         env:
@@ -341,7 +351,7 @@ jobs:
         uses: ./.github/actions/check-clean-worktree
 
   clippy:
-    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || 120 }}
     strategy:
       fail-fast: false
       matrix:
@@ -377,6 +387,16 @@ jobs:
         with:
           target: ${{ matrix.target }}
           cache-scope: bazel-${{ github.job }}
+
+      - name: Prepare pinned pkgconf for local Windows GNU fallback
+        if: runner.os == 'Windows'
+        env:
+          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:BUILDBUDDY_API_KEY) {
+            & ./.github/scripts/setup-voice-windows-pkgconf.ps1
+          }
 
       - name: Resolve app-server/exec-server compatibility releases
         if: runner.os == 'Linux'
@@ -453,7 +473,7 @@ jobs:
         uses: ./.github/actions/check-clean-worktree
 
   verify-release-build:
-    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || (matrix.os == 'ubuntu-24.04' && 120 || 30) }}
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 30 || 120 }}
     strategy:
       fail-fast: false
       matrix:
@@ -485,6 +505,16 @@ jobs:
         with:
           target: ${{ matrix.target }}
           cache-scope: bazel-${{ github.job }}
+
+      - name: Prepare pinned pkgconf for local Windows GNU fallback
+        if: runner.os == 'Windows'
+        env:
+          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:BUILDBUDDY_API_KEY) {
+            & ./.github/scripts/setup-voice-windows-pkgconf.ps1
+          }
 
       - name: Resolve app-server/exec-server compatibility releases
         if: runner.os == 'Linux'

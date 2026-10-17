@@ -279,6 +279,17 @@ if [[ "${RUNNER_OS:-}" == "Windows" && $windows_msvc_host_platform -eq 1 ]]; the
     # explicit `--platforms=...` flag.
     post_config_bazel_args+=("--host_platform=//:local_windows_msvc")
   fi
+
+  if [[ $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" && -n "${VOICE_WINDOWS_PKGCONF_REPOSITORY:-}" ]]; then
+    # Gnullvm Cargo build scripts need a Windows-hosted pkgconf executable,
+    # but resolving the native-MSVC voice provider would pull in licensed
+    # MSVC/SDK inputs. The fork-safe fallback provisions only pinned pkgconf.
+    post_config_bazel_args+=(
+      "--inject_repository=voice_windows_pkgconf=${VOICE_WINDOWS_PKGCONF_REPOSITORY}"
+      "--//third_party/voice:windows_pkgconf_only=true"
+      "--//third_party/voice:windows_installed_pkgconf=@voice_windows_pkgconf//:pkgconf_files"
+    )
+  fi
 fi
 
 if [[ $remote_download_toplevel -eq 1 ]]; then
