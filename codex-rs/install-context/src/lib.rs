@@ -514,8 +514,8 @@ mod tests {
         fs::create_dir_all(&bin_dir)?;
         fs::create_dir_all(&resources_dir)?;
         fs::write(package_dir.path().join(PACKAGE_METADATA_FILENAME), "{}")?;
-        let exe_path = bin_dir.join("codex");
-        let resource_host = resources_dir.join("codex-code-mode-host");
+        let exe_path = bin_dir.join(if cfg!(windows) { "codex.exe" } else { "codex" });
+        let resource_host = resources_dir.join(CODE_MODE_HOST_EXECUTABLE_NAME);
         fs::write(&exe_path, "codex")?;
         fs::write(&resource_host, "standard host")?;
 
@@ -535,8 +535,10 @@ mod tests {
     #[test]
     fn conventionally_named_executable_uses_standard_sibling_host() -> std::io::Result<()> {
         let install_dir = tempfile::tempdir()?;
-        let exe_path = install_dir.path().join("codex");
-        let host_path = install_dir.path().join("codex-code-mode-host");
+        let exe_path = install_dir
+            .path()
+            .join(if cfg!(windows) { "codex.exe" } else { "codex" });
+        let host_path = install_dir.path().join(CODE_MODE_HOST_EXECUTABLE_NAME);
         fs::write(&exe_path, "codex")?;
         fs::write(&host_path, "standard host")?;
 
