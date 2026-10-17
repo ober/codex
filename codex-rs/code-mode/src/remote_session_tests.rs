@@ -30,7 +30,9 @@ fn missing_host_availability_error_explains_how_to_fix_the_install() {
         .expect_err("missing host should make code mode unavailable");
 
     assert!(error.contains(&host_program.display().to_string()));
-    assert!(error.contains("build and install the matching code-mode host beside the Codex executable"));
+    assert!(
+        error.contains("build and install the matching code-mode host beside the Codex executable")
+    );
 }
 
 #[test]
