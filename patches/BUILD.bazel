@@ -3,6 +3,7 @@ exports_files([
     "bzip2_windows_stack_args.patch",
     "llvm_rusty_v8_custom_libcxx.patch",
     "llvm_windows_arm64_powl.patch",
+    "llvm_windows_header_parser.patch",
     "llvm_windows_mingw_compat.patch",
     "mxc-sdk_utf8_resources.patch",
     "rules_rust_build_script_tools_transition.patch",
