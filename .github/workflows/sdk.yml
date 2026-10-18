@@ -100,11 +100,11 @@ jobs:
               'set(//codex-rs/cli:codex //codex-rs/code-mode-host:codex-code-mode-host)' \
               | grep -E '^(/|bazel-out/)'
           )"
-          mapfile -t bazel_output_paths <<< "${cquery_output}"
-          if [[ ${#bazel_output_paths[@]} -ne 2 ]]; then
-            echo "Expected both Bazel-built binaries, found ${#bazel_output_paths[@]}." >&2
-            exit 1
-          fi
+          selected_binaries="$(
+            python3 .github/scripts/select_sdk_binaries.py codex codex-code-mode-host \
+              <<< "${cquery_output}"
+          )"
+          mapfile -t bazel_output_paths <<< "${selected_binaries}"
 
           # Stage both binaries together so the CLI can discover its sibling
           # code-mode host while the SDK tests spawn the CLI directly.
