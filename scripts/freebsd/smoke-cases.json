@@ -213,7 +213,7 @@
         "mcp_servers.jerboa.enabled_tools=[\"jerboa_check_balance\"]",
         "mcp_servers.jerboa.tools.jerboa_check_balance.approval_mode=\"approve\""
       ],
-      "prompt": "Call only Jerboa MCP jerboa_check_balance on the supplied Scheme source string `(define (freebsd-smoke x) x)`. Report whether it is balanced. Do not access a file or use another tool.",
+      "prompt": "Call only Jerboa MCP jerboa_check_balance with the `code` argument set to the exact Scheme source string `(define (freebsd-smoke x) x)`. Report whether it is balanced. Do not access a file or use another tool.",
       "expected_items": [
         {
           "type": "mcp_tool_call",

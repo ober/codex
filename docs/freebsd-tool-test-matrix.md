@@ -10,23 +10,53 @@ Use the supported model explicitly (`gpt-5.6-sol` or another model confirmed
 available to the account). The inherited model `gpt-6.1-sol` is not accepted by
 the native service and fails with HTTP 400 before any tool executes.
 
-## Latest native-pair evidence (2026-10-16)
+## Latest native-pair build (2026-10-18)
 
-The latest installed pair is
-`/home/user/.local/bin/codex-freebsd` (SHA-256
-`b9743a5866103e6a6aab345c9fe819cece5f2f7d5c2652d8194f1dc292891cc8`)
-and its sibling `/home/user/.local/bin/codex-code-mode-host-freebsd`
-(SHA-256 `b597ca4355045a6b7fed78714266db21c637a69c865ab5ab42004574220deadf`).
-Both are FreeBSD 15.1 amd64 ELFs; the helper carries the `wxneeded` feature
-note. The Linux default `~/.local/bin/codex` remains SHA-256
+The current installed pair was built from repository commit
+`ffec151e412e0d8ca99a9574c330d4cbcecd287b` on FreeBSD 15.1 amd64. The CLI
+`/home/user/.local/bin/codex-freebsd` has SHA-256
+`dfb2251bb109570bd6e6b187eaaad31fdd669230a8f80fd56b25eac7fdc5a4a2`; its
+sibling `/home/user/.local/bin/codex-code-mode-host-freebsd` has SHA-256
+`fcf877d807c335ab9bf8eb65eb09dd0b5d0920e0c1b73d7f33d068d45cb30092`. Both
+are FreeBSD 15.1 amd64 ELFs, and only the helper has the `wxneeded` feature
+set. The Linux default `~/.local/bin/codex` remains SHA-256
 `399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`; it was
-not replaced. The pair was rebuilt from the zip 9.0.1 security-fix source
-commit `abe2be90b`; later deny-policy, Bazel lock, and Windows patch metadata
-commits did not change the Rust source used for these binaries. Older
-candidate hashes remain in prior run logs.
+not replaced. The build completed successfully at 2026-10-18 04:25 UTC. Its
+build log and machine-readable status are retained at
+`~/work/codex-runtime-repro/build.log` and
+`~/work/codex-runtime-repro/build-status.json`. The later branch commit records
+this evidence and clarifies one smoke-test prompt; neither change modifies
+production Rust code, so the binaries remain attributable to `ffec151e`.
 
-On this installed pair, the native Code Mode app-server suite passed 14/14
-cases, including host startup, nested tool catalog, image decode,
+The fresh native app-server suite passed 16/16 cases on this pair: host smoke,
+tool catalog, agent schema/lifecycle, image, resources/templates/read, goals,
+`apply_patch`, fail-closed workspace-write, all 51 Jerboa methods in 60 calls,
+configured read-only Jerboa, Kagi search, all five OpenAI Developer Docs
+methods, and missing-provider diagnosis. Fourteen initial invocations passed;
+the Jerboa all-tools and Kagi cases needed corrected provider-path arguments
+and both reruns passed. The configured Jerboa read returned a correlated result
+and left all 12 production data files unchanged. The rollup and sanitized case
+logs are under `~/work/codex-runtime-repro/native-final-suite-dfb2251b/`.
+The 15-row JSONL smoke manifest had 11 first-run passes, two expected
+fail-closed sandbox limitations, and two first-run failures. Captured retries
+verified JSONL `apply_patch` add/update events and exact file bytes, and the
+Jerboa balance read's correlated completed result. The first apply-patch
+failure's raw output was not retained and the retry did not reproduce it. The
+initial balance call supplied an unsupported `source` argument and received
+`file_path or code is required.` The test prompt now names the actual `code`
+argument; its strict expected argument/result assertions did not change. Both
+corrected rows passed, for 13 functional passes plus the two expected sandbox
+limitations. The request-user-input roundtrip passed. Helper IPC stress passed
+one million hot-function calls with the exact checksum. A separate
+process-scoped deny-WX diagnostic ended before a frame completed and remains
+inconclusive. The live
+TUI PTY submitted a prompt and verified the completed Code Mode command and
+scratch-file bytes against these installed hashes. Rollup and sanitized logs
+are in `~/work/codex-runtime-repro/native-final-suite-dfb2251b/`.
+
+On the previous installed pair (CLI SHA-256 `b9743a5866103e6a6aab345c9fe819cece5f2f7d5c2652d8194f1dc292891cc8`),
+the native Code Mode app-server suite passed 14/14 cases, including host
+startup, nested tool catalog, image decode,
 resources/templates/resource read, goals, agent schema/lifecycle, `apply_patch`,
 workspace-write fail-closed, all 51 Jerboa methods in 60 calls, and all five
 OpenAI Developer Docs calls. The request-user-input roundtrip and exec-cell
@@ -40,18 +70,19 @@ postconditions. Three deliberate validation probes returned normal
 versioned patched provider described below. Earlier staged-pair runs remain in
 historical logs.
 
-The final live TUI PTY run on the latest installed pair reached Code Mode and
-executed its scratch-file command successfully. The corrected runner waits for the typed marker to
-appear, pauses 250 ms, then sends Enter separately. It accepted the actual
-Rust `CommandExecution` rollout item and verified the completed event, marker,
-and exact scratch-file contents. The run used the installed CLI/helper hashes
-above and supported model `gpt-5.6-sol`. The CLI includes the
-fail-closed sandbox guard; the explicit restricted-sandbox and JSONL builtin
-gates are recorded in their own rows below.
+The previous pair's live TUI PTY run reached Code Mode and executed its
+scratch-file command successfully. The corrected runner waits for the typed
+marker to appear, pauses 250 ms, then sends Enter separately. It accepted the
+actual Rust `CommandExecution` rollout item and verified the completed event,
+marker, and exact scratch-file contents. That run used supported model
+`gpt-5.6-sol`. The current pair also passed the TUI PTY check. Its default and
+explicit workspace-write sandbox requests failed closed as expected, with no
+command execution or marker; the sandbox and JSONL builtin gates are recorded
+in their own rows below.
 
-## Installed suffix-pair verification
+## Previous installed suffix-pair verification (2026-10-16)
 
-After the latest installation, `/home/user/.local/bin/codex-freebsd` was
+After the previous installation, `/home/user/.local/bin/codex-freebsd` was
 verified as FreeBSD 15.1 amd64 ELF, SHA-256
 `b9743a5866103e6a6aab345c9fe819cece5f2f7d5c2652d8194f1dc292891cc8`; its
 sibling `/home/user/.local/bin/codex-code-mode-host-freebsd` has SHA-256
@@ -102,9 +133,9 @@ scoped config backup is
 Jerboa command and its matching `JERBOA_HOME` / `JERBOA_MCP_JERBOA_PATH` values
 changed.
 
-The standalone `request_user_input` app-server test also passed against the
-latest installed CLI. It used an isolated Plan-mode thread and a local
-Responses stub:
+The standalone `request_user_input` test passed on both the previous and current
+installed pairs. It used an isolated Plan-mode thread and a local Responses
+stub:
 the app-server emitted the exact blocking question and options, the harness
 returned the simulated `Pass` answer, and the follow-up Responses request
 contained one `function_call_output` correlated to the exact tool call with the
@@ -113,24 +144,24 @@ parsed answer payload. The matching `turn/completed` notification had status
 `--self-test` rejects missing/wrong call IDs, a prompt-only option-label match,
 wrong answers, altered questions, and failed/interrupted turn status. The
 sanitized result is retained at
-`~/work/codex-runtime-repro/installed-final-suite-abe2be90/request-user-input.log`.
+`~/work/codex-runtime-repro/native-final-suite-dfb2251b/request-user-input.log`.
 
 ## Runtime and package checks
 
 | Surface                           | Evidence required for pass                                                                                                                                                              | Current evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Native executable identity        | `file` identifies FreeBSD ELF; `--version` exits 0                                                                                                                                      | Pass after latest installation: `/home/user/.local/bin/codex-freebsd`, FreeBSD 15.1 x86_64 ELF; SHA-256 `b9743a5866103e6a6aab345c9fe819cece5f2f7d5c2652d8194f1dc292891cc8`; `--version` succeeded                                                                                                                                                                                                                                                                                                                                                                        |
-| Side-by-side install              | Inspect both command paths; run the harness with its explicit native path                                                                                                               | `~/.local/bin/codex` remains the separate SYSV static-pie Linux binary at SHA-256 `399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`; `~/.local/bin/codex-freebsd` and its suffixed helper are installed FreeBSD ELFs.                                                                                                                                                                                                                                                                                                                                   |
+| Native executable identity        | `file` identifies FreeBSD ELF; `--version` exits 0 | Pass on latest installation: `/home/user/.local/bin/codex-freebsd`, FreeBSD 15.1 amd64 ELF, SHA-256 `dfb2251bb109570bd6e6b187eaaad31fdd669230a8f80fd56b25eac7fdc5a4a2`; `--version` returned `codex-cli 0.0.0` with exit 0. |
+| Side-by-side install              | Inspect both command paths; run the harness with its explicit native path | `~/.local/bin/codex` remains the separate static-pie Linux binary at SHA-256 `399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215`; native CLI and helper are FreeBSD 15.1 amd64 ELFs at the hashes recorded above. |
 | Native test PATH helpers          | Resolve each external command and inspect its ELF format                                                                                                                                | The inherited PATH resolves `codex` to the preserved Linux symlink and `rg` first to the app-server daemon's Linux static-pie binary; `/usr/local/bin/rg`, `git`, `python3`, `bash`, `cargo`, `file`, and `timeout` are FreeBSD binaries. `jmcp` resolves to the native FreeBSD Jerboa executable. The native app-server harness now prepends a private per-run directory linking `codex` to its explicit FreeBSD test binary and `rg` to `/usr/local/bin/rg`, then searches FreeBSD system directories and `~/.local/bin`; no global PATH or Linux install was changed. |
-| Per-binary W^X metadata           | Inspect native CLI and matching helper with `elfctl` and ELF program headers; run JIT-enabled V8 evaluation and bounded hot-function stress                                             | Latest CLI has `wxneeded` unset and `GNU_STACK` is RW; latest helper has `wxneeded` set. Native app-server host startup/evaluation passed on the latest pair. The one-million-call hot-function stress/checksum passed on the preceding pair (`39d6558…` / `78a0011…`). These checks verify V8 evaluation in its JIT-enabled configuration, not optimized machine-code generation or behavior with global `kern.elf64.allow_wx=0`; the observed global setting was `1` and was not modified.                                                                             |
+| Per-binary W^X metadata           | Inspect native CLI and matching helper with `elfctl` and ELF program headers; run JIT-enabled V8 evaluation and bounded hot-function stress | Current CLI `wxneeded` is unset; helper `wxneeded` is set. Installed helper IPC stress passed one million hot-function calls with the exact checksum and process W^X status disabled. A separate process-scoped deny-WX diagnostic ended before completing a frame and is inconclusive. No system-wide sysctl was changed; this does not establish behavior with global `kern.elf64.allow_wx=0` or prove optimized machine-code generation. |
 | MCP configuration discovery       | `codex-freebsd mcp list` exits 0 and reports configured/enabled state                                                                                                                   | Pass: `jerboa`, `jerbsearch`, `kagi`, `llm_search`, and `openaiDeveloperDocs` enabled; `gerbil` disabled. `mcp list` reports authentication metadata as `Unsupported`; the configured Kagi wrapper nevertheless completed the real read-only search recorded below.                                                                                                                                                                                                                                                                                                      |
 | App-server catalog surface        | Initialize app-server and start an ephemeral thread; inspect returned fields for actual tool schemas                                                                                    | Native app-server initialize returned `userAgent`, `codexHome`, `platformFamily`, and `platformOs`; `thread/start` returned thread/model/provider/workspace/approval config, but no tool names or schemas. The local Responses recorder captured the later model request schema; no external model was used                                                                                                                                                                                                                                                              |
-| Helper executable lookup          | Installed and relocated binary selects the correct adjacent or package-resource helper; helper executes and completes a code-mode cell                                                  | The installed final pair resolves its suffixed sibling and passed direct IPC and app-server tests. Earlier missing-companion checks used a separate staged copy                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Model/API reachability            | One native model request completes using an explicitly supported model                                                                                                                  | Pass on installed CLI `b9743a58…91cc8`: supported `gpt-5.6-sol` reached the service and live TUI PTY verified a completed command event plus exact scratch file                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Default sandbox behavior          | Invoke `exec` without `--sandbox`; report either a completed harmless command or a direct fail-closed sandbox error, never infer the outcome from prose                                 | Final exec-JSONL smoke reported `LIMITATION`: the native router logger recorded `filesystem sandbox cannot be enforced on this host`, the command did not execute, and the marker was absent. The runner does not count the assistant message as successful execution                                                                                                                                                                                                                                                                                                    |
-| Explicit workspace-write sandbox  | Attempt a unique scratch marker write with `--sandbox workspace-write`; require direct `filesystem sandbox cannot be enforced` failure evidence and no completed command item or marker | Final exec-JSONL smoke reported the same `LIMITATION`, with the router logger recording the exact rejection, no command execution, and no marker. A deterministic app-server nested `exec_command` probe also returned the correlated error and confirmed marker absence                                                                                                                                                                                                                                                                                                 |
+| Helper executable lookup          | Installed and relocated binary selects the correct adjacent or package-resource helper; helper executes and completes a code-mode cell | Current installed CLI resolved its suffixed sibling and passed native app-server host smoke, all 16 app-server cases, helper IPC stress, and live TUI Code Mode dispatch. |
+| Model/API reachability            | One native model request completes using an explicitly supported model | Pass on current CLI SHA-256 `dfb2251b…fdc5a4a2`: supported `gpt-5.6-sol` completed the live TUI Code Mode command and exact scratch-file check. |
+| Default sandbox behavior          | Invoke `exec` without `--sandbox`; report either a completed harmless command or a direct fail-closed sandbox error, never infer the outcome from prose | Current JSONL manifest result is `LIMITATION`: `sandbox_rejection_observed`; command did not execute and no marker was created. Exit status was 0 because the runner recorded the expected fail-closed response. |
+| Explicit workspace-write sandbox  | Attempt a unique scratch marker write with `--sandbox workspace-write`; require direct `filesystem sandbox cannot be enforced` failure evidence and no completed command item or marker | Current app-server and JSONL cases both report the native sandbox rejection, with no command execution or marker. The manifest classifies this expected behavior as `LIMITATION`. |
 | Native model-facing outer tools   | Capture the actual request `tools` schema from a native model turn                                                                                                                      | Pass for the isolated local-provider fixture: `exec`, `wait`, and `request_user_input` were present in the request; this is not an account-wide catalog                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Code Mode nested built-in catalog | Run `ALL_TOOLS` inside actual native Code Mode and capture the result returned to the next model request                                                                                | Pass on installed pair: exact 15 nested names observed and asserted. Targeted native calls covered image decode, resources/templates/read, goals, agent schema/lifecycle, `apply_patch`, shell/PTY, `write_stdin`, waits, parallel dispatch, and error propagation. Coverage is aggregated across targeted runs, not one uninterrupted 15-case model turn. The outer request schema advertises `exec` as the JS entry point                                                                                                                                              |
+| Code Mode nested built-in catalog | Run `ALL_TOOLS` inside actual native Code Mode and capture the result returned to the next model request | Pass on current installed pair: exact 15 nested names were observed and asserted. The fresh 16-case app-server suite also covered image/resources/templates/read, goals, agent schema/lifecycle, `apply_patch`, Jerboa, Kagi, OpenAI docs, and missing-provider behavior. Coverage is aggregated across cases rather than one model turn. |
 
 The nested-catalog fixture requires these exact 15 names to be present in
 `ALL_TOOLS`: `apply_patch`, `create_goal`, `exec_command`, `get_goal`,
@@ -161,24 +192,25 @@ Run each row as an individual native request. A pass requires the matching
 tool-call event and a result that demonstrates the requested operation. A
 successful assistant response without that tool-call event is not a pass.
 
-The standalone live-manifest rows below were run against the pre-security
-installed candidate pair (`39d6558…` / `78a0011…`). The latest `abe2be90`
-installed pair has the separately recorded 14/14 app-server suite, direct
-host startup/evaluation, yielded exec-cell wait, request-user-input roundtrip,
-and live TUI PTY results above. Do not treat the earlier manifest results as
-reruns on the newer hashes.
+The standalone live manifest was run against the current installed pair. It
+recorded 13 functional passes after captured retries, plus two expected
+fail-closed sandbox limitations. The first `apply_patch` invocation did not
+produce the expected event; a captured retry passed. The balance-read prompt was
+clarified to name its existing `code` argument, without changing expected
+arguments or results, and its exact-row rerun passed. Earlier candidate-pair
+rows below are labeled as historical.
 
 | Tool or tool family                 | Safe probe                                                                                                      | Pass evidence                                                                       | Status                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code-mode `exec` (freeform)         | Run a bounded `printf` command through `codex exec`                                                             | Completed `command_execution` item with stdout marker and exit 0                    | Pass on pre-security candidate CLI: exact `EXEC_OK` result in targeted smoke                                                                                                                                                                                                                                                                                        |
-| Code-mode `wait`                    | Run `sleep 2; printf WAIT_CELL_OK`, then wait on the yielded cell if needed                                     | Completed command item with final marker and exit 0                                 | Pass on pre-security candidate CLI: yielded exec cell completed and emitted `WAIT_CELL_OK`; latest pair separately passed exec-cell wait                                                                                                                                                                                                                            |
-| Shell PTY / `write_stdin`           | Start a shell that prints a ready marker and reads one input line; send `hello` into the same process           | Completed command item has both output markers and captured interactive input       | Pass on pre-security candidate CLI: same PTY process emitted `PTY_READY`, received `hello` through `write_stdin`, and completed successfully; latest pair separately passed the top-level interactive TUI PTY                                                                                                                                                       |
-| `apply_patch`                       | Add one marker file under a disposable workspace                                                                | Completed file-change item names exact added path; final bytes match exactly        | Pass on pre-security candidate pair: raw exec JSONL emitted exact `file_change` events and marker bytes. Latest pair also passed the deterministic app-server `apply_patch` case and verified exact file bytes under danger-full-access                                                                                                                             |
-| Parallel tool dispatch              | Start two shell calls or local fixture MCP calls with reciprocal bounded barriers                               | Both completed items/results plus both markers prove overlap                        | Pass on pre-security candidate CLI: parallel shell barriers completed; fixture-MCP overlap also passed with measured `max_concurrent=2`                                                                                                                                                                                                                             |
-| Error propagation                   | Execute a deliberately nonexistent command or fixture MCP error                                                 | Exact failed command/MCP tool item and error text                                   | Pass on pre-security candidate CLI for the nonexistent command and fixture-MCP error; expected failed tool results matched                                                                                                                                                                                                                                          |
-| Jerboa MCP read calls               | Bounded feature/search/balance/error-fix read calls                                                             | Completed MCP events identify exact server/tool/arguments and contain a result      | Targeted real-model calls for `list_features`, `howto`, and `check_balance` passed with matching completed MCP events; the original balance prompt was a model non-call, but a forced enabled-tool read probe passed. `error-fix` lookup passed. The deterministic local-stub app-server replay passed all 51 Jerboa names in 60 calls against the patched provider |
-| Other configured MCP servers        | Query `tools/list` before invoking any tool                                                                     | Server starts; tool schemas are captured; calls are separately classified           | OpenAI Developer Docs schema, five direct reads and five native Code Mode calls passed. One bounded real Kagi `kagi_search_fetch` call also passed through the installed wrapper and native Code Mode path; `jerbsearch` and `llm_search` remain unvalidated.                                                                                                       |
-| Missing MCP provider diagnostic     | Start app-server with an isolated configured command path that does not exist, then call `mcpServerStatus/list` | Failed status contains exact startup/ENOENT diagnosis; no provider is launched      | Native test passed: `MCP startup failed: No such file or directory (os error 2)`; response does not include the configured command path                                                                                                                                                                                                                             |
+| Code-mode `exec` (freeform)         | Run a bounded `printf` command through `codex exec`                                                             | Completed `command_execution` item with stdout marker and exit 0                    | Pass on current pair: JSONL `shell-exec` completed with exit 0 and the expected marker. |
+| Code-mode `wait`                    | Run `sleep 2; printf WAIT_CELL_OK`, then wait on the yielded cell if needed                                     | Completed command item with final marker and exit 0                                 | Pass on current pair: JSONL `exec-cell-wait` yielded, completed, and emitted the final marker with exit 0. |
+| Shell PTY / `write_stdin`           | Start a shell that prints a ready marker and reads one input line; send `hello` into the same process           | Completed command item has both output markers and captured interactive input       | The previous candidate passed the nested PTY/write_stdin probe. The current JSONL PTY case passed, and the separate live TUI PTY completed a Code Mode command with exact scratch-file bytes. |
+| `apply_patch`                       | Add one marker file under a disposable workspace                                                                | Completed file-change item names exact added path; final bytes match exactly        | App-server `apply_patch` passed on the current pair. A captured JSONL retry emitted the exact add/update events and verified the marker bytes; the initial manifest attempt was not reproduced. |
+| Parallel tool dispatch              | Start two shell calls or local fixture MCP calls with reciprocal bounded barriers                               | Both completed items/results plus both markers prove overlap                        | Current JSONL `parallel-shell` and fixture-MCP parallel probes passed; fixture dispatch measured `max_concurrent=2`. |
+| Error propagation                   | Execute a deliberately nonexistent command or fixture MCP error                                                 | Exact failed command/MCP tool item and error text                                   | Current JSONL command-error and fixture-MCP error probes returned the expected failed results. |
+| Jerboa MCP read calls               | Bounded feature/search/balance/error-fix read calls                                                             | Completed MCP events identify exact server/tool/arguments and contain a result      | Current app-server all-tools replay passed all 60 calls across 51 Jerboa methods. JSONL feature, howto, and error-fix reads passed. The balance row passed after its prompt named the existing `code` argument; its exact expected argument/result checks were unchanged. |
+| Other configured MCP servers        | Query `tools/list` before invoking any tool                                                                     | Server starts; tool schemas are captured; calls are separately classified           | Current native Code Mode passed five OpenAI Developer Docs calls and one Kagi `kagi_search_fetch` call with three validated GitHub URLs. `jerbsearch` and `llm_search` remain unvalidated. |
+| Missing MCP provider diagnostic     | Start app-server with an isolated configured command path that does not exist, then call `mcpServerStatus/list` | Failed status contains exact startup/ENOENT diagnosis; no provider is launched      | Pass on current pair: `MCP startup failed: No such file or directory (os error 2)`; the configured command path was omitted from the response. |
 | Disabled or unavailable MCP servers | Inspect configuration/list output only                                                                          | State is reported accurately; no call is misreported as a successful tool execution | `gerbil` is disabled; `jerbsearch` and `llm_search` remain unvalidated                                                                                                                                                                                                                                                                                              |
 
 ### Every configured MCP server
@@ -237,9 +269,9 @@ installed CLI/helper and Kagi wrapper/stdio hashes, is at
 unvalidated. The `llm_search` probe invoked the direct `llm-search mcp` command,
 not its configured shell wrapper, to avoid starting its unrelated daemon; its
 configured invocation is also unvalidated. `gerbil` is disabled and was not
-started. An all-configured-server pass is therefore still pending for those
-two enabled local providers. Earlier Kagi startup attempts that failed before
-MCP initialization are historical and are superseded by the successful
+started. No all-configured-server pass is claimed for the two enabled local
+providers that remain unvalidated. Earlier Kagi startup attempts that failed
+before MCP initialization are historical and are superseded by the successful
 correlated search above.
 
 Read-only dependency/source inspection found that `jerbsearch` is configured
@@ -382,7 +414,7 @@ jerboa
 
 The initial `jerboa_list_features` call stopped at code-mode host startup.
 After the helper was built, the strict `jerboa-all` replay passed all 51
-methods in 60 calls on installed CLI `b9743a58…91cc8` and the final patched
+methods in 60 calls on current CLI `dfb2251b…fdc5a4a2` and the final patched
 provider `9d260213…1580faf`. Separately,
 `scripts/freebsd/test_jerboa_scratch.py` passed against the native Jerboa server:
 `initialize` and `tools/list` returned 51 tools using protocol 2025-03-26, and
