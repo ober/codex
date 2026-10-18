@@ -479,7 +479,7 @@ mod tests {
 
         assert_eq!(
             context.code_mode_host_program_for_exe(Some(&exe_path)),
-            resource_host.canonicalize()?
+            AbsolutePathBuf::from_absolute_path(resource_host.canonicalize()?)?.into_path_buf()
         );
         Ok(())
     }
@@ -550,7 +550,7 @@ mod tests {
 
         assert_eq!(
             context.code_mode_host_program_from_exe(Some(&exe_path)),
-            host_path.canonicalize()?
+            AbsolutePathBuf::from_absolute_path(host_path.canonicalize()?)?.into_path_buf()
         );
         Ok(())
     }
