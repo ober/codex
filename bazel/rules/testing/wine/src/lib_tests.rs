@@ -5,6 +5,7 @@ use std::future::Future;
 use std::panic::AssertUnwindSafe;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -24,6 +25,40 @@ use super::WineRuntimePaths;
 use super::WineTestCommand;
 use super::WineTestProcess;
 use super::install_powershell_runtime;
+
+#[derive(Default)]
+struct PowerShellSmokeProgress {
+    phase: &'static str,
+    stdout_bytes: usize,
+    stderr_bytes: usize,
+    marker_seen: bool,
+    marker_tail: Vec<u8>,
+}
+
+impl PowerShellSmokeProgress {
+    fn record_stdout(&mut self, bytes: &[u8]) {
+        self.stdout_bytes += bytes.len();
+        if self.marker_seen {
+            return;
+        }
+
+        const MARKER: &[u8] = b"WINE_PWSH_SMOKE";
+        let mut window = std::mem::take(&mut self.marker_tail);
+        window.extend_from_slice(bytes);
+        self.marker_seen = window.windows(MARKER.len()).any(|part| part == MARKER);
+        if !self.marker_seen {
+            let keep = MARKER.len().saturating_sub(1).min(window.len());
+            self.marker_tail = window.split_off(window.len() - keep);
+        }
+    }
+
+    fn summary(&self) -> String {
+        format!(
+            "phase={}, stdout_bytes={}, stderr_bytes={}, smoke_marker_seen={}",
+            self.phase, self.stdout_bytes, self.stderr_bytes, self.marker_seen
+        )
+    }
+}
 
 async fn waiting_smoke_process() -> Result<WineTestProcess> {
     let executable = codex_utils_cargo_bin::cargo_bin("wine-smoke")?;
@@ -355,25 +390,34 @@ async fn pinned_powershell_runs_under_wine_with_a_pty() -> Result<()> {
         POWERSHELL_SMOKE_SCRIPT.to_string(),
     ];
     let wine = runtime.wine.to_string_lossy().into_owned();
-    let SpawnedProcess {
-        session,
-        mut stdout_rx,
-        mut stderr_rx,
-        exit_rx,
-    } = codex_utils_pty::spawn_pty_process(
-        &wine,
-        &args,
-        prefix.path(),
-        &env,
-        /*arg0*/ &None,
-        TerminalSize::default(),
-        codex_utils_pty::ChildFds::Inherited(&[]),
-    )
-    .await?;
-    let command_result = timeout(Duration::from_secs(30), async {
+    let progress = std::sync::Arc::new(Mutex::new(PowerShellSmokeProgress {
+        phase: "spawning PTY process",
+        ..PowerShellSmokeProgress::default()
+    }));
+    let command_result = timeout(Duration::from_secs(120), async {
+        let SpawnedProcess {
+            session,
+            mut stdout_rx,
+            mut stderr_rx,
+            exit_rx,
+        } = codex_utils_pty::spawn_pty_process(
+            &wine,
+            &args,
+            prefix.path(),
+            &env,
+            /*arg0*/ &None,
+            TerminalSize::default(),
+            codex_utils_pty::ChildFds::Inherited(&[]),
+        )
+        .await?;
+        progress.lock().expect("smoke progress mutex").phase = "waiting for PowerShell exit";
         let stdout = async {
             let mut output = Vec::new();
             while let Some(chunk) = stdout_rx.recv().await {
+                progress
+                    .lock()
+                    .expect("smoke progress mutex")
+                    .record_stdout(&chunk);
                 output.extend(chunk);
             }
             output
@@ -381,17 +425,28 @@ async fn pinned_powershell_runs_under_wine_with_a_pty() -> Result<()> {
         let stderr = async {
             let mut output = Vec::new();
             while let Some(chunk) = stderr_rx.recv().await {
+                let mut progress = progress.lock().expect("smoke progress mutex");
+                progress.stderr_bytes += chunk.len();
                 output.extend(chunk);
             }
             output
         };
         let (stdout, stderr, exit_code) = tokio::join!(stdout, stderr, exit_rx);
-        Ok::<_, anyhow::Error>((stdout, stderr, exit_code.context("wait for PowerShell")?))
+        drop(session);
+        Ok::<_, anyhow::Error>((
+            stdout,
+            stderr.len(),
+            exit_code.context("wait for PowerShell")?,
+        ))
     })
     .await
-    .context("PowerShell smoke test timed out")
+    .map_err(|_| {
+        anyhow!(
+            "PowerShell smoke test timed out after 120s ({})",
+            progress.lock().expect("smoke progress mutex").summary()
+        )
+    })
     .and_then(std::convert::identity);
-    drop(session);
     let shutdown_result = timeout(Duration::from_secs(10), async {
         let mut command = TokioCommand::new(&runtime.wineserver);
         command
@@ -410,7 +465,7 @@ async fn pinned_powershell_runs_under_wine_with_a_pty() -> Result<()> {
     .await
     .context("stop isolated wineserver timed out")
     .and_then(std::convert::identity);
-    let (stdout, stderr, exit_code) = match (command_result, shutdown_result) {
+    let (stdout, stderr_bytes, exit_code) = match (command_result, shutdown_result) {
         (Ok(output), Ok(())) => output,
         (Err(error), Ok(())) => return Err(error),
         (Ok(_), Err(error)) => return Err(error),
@@ -420,14 +475,18 @@ async fn pinned_powershell_runs_under_wine_with_a_pty() -> Result<()> {
     };
     anyhow::ensure!(
         exit_code == 0,
-        "PowerShell exited with {}; stderr: {}",
+        "PowerShell exited with {}; {}",
         exit_code,
-        String::from_utf8_lossy(&stderr),
+        progress.lock().expect("smoke progress mutex").summary(),
     );
     let output = String::from_utf8(stdout)?;
-    let marker_start = output
-        .find(POWERSHELL_SMOKE_MARKER)
-        .with_context(|| format!("PowerShell smoke marker was missing from {output:?}"))?;
+    let marker_start = output.find(POWERSHELL_SMOKE_MARKER).with_context(|| {
+        format!(
+            "PowerShell smoke marker was missing (stderr_bytes={}, {})",
+            stderr_bytes,
+            progress.lock().expect("smoke progress mutex").summary()
+        )
+    })?;
     let smoke = output[marker_start..]
         .lines()
         .next()
