@@ -117,15 +117,46 @@ def remote_config(args: Sequence[str], env: Mapping[str, str]) -> str | None:
 
 def bazel_args_without_remote_execution(args: Sequence[str]) -> list[str]:
     # Remote CI configs require BuildBuddy credentials. Removing them preserves
-    # the local fallback used for fork pull requests.
+    # the local fallback used for fork pull requests. Keep the shared CI config
+    # because it disables the default local action disk cache and retains the
+    # common CI behavior without selecting a remote execution platform.
     try:
         separator_idx = args.index("--")
     except ValueError:
         separator_idx = len(args)
-    return [
+    command_idx = next(
+        (
+            idx
+            for idx, arg in enumerate(args[:separator_idx])
+            if not arg.startswith("-")
+        ),
+        None,
+    )
+    if command_idx is None:
+        raise ValueError("expected a Bazel command")
+
+    removed_remote_config = any(
+        arg in REMOTE_EXECUTION_CONFIGS for arg in args[:separator_idx]
+    )
+    filtered_args = [
         *(arg for arg in args[:separator_idx] if arg not in REMOTE_EXECUTION_CONFIGS),
         *args[separator_idx:],
     ]
+    try:
+        filtered_separator_idx = filtered_args.index("--")
+    except ValueError:
+        filtered_separator_idx = len(filtered_args)
+    if (
+        removed_remote_config
+        and "--config=ci" not in filtered_args[:filtered_separator_idx]
+    ):
+        filtered_command_idx = next(
+            idx
+            for idx, arg in enumerate(filtered_args[:filtered_separator_idx])
+            if not arg.startswith("-")
+        )
+        filtered_args.insert(filtered_command_idx + 1, "--config=ci")
+    return filtered_args
 
 
 def bazel_args_with_remote_config(

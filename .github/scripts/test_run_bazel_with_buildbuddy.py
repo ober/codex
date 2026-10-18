@@ -33,20 +33,36 @@ class RunBazelWithBuildBuddyTest(unittest.TestCase):
             "GITHUB_REPOSITORY": repository,
         }
 
-    def test_keyless_invocation_drops_remote_ci_configuration(self) -> None:
+    def test_keyless_invocation_keeps_common_ci_configuration(self) -> None:
         self.assertIsNone(
             run_bazel_with_buildbuddy.remote_config(
                 ["build", "--config=ci-linux", "//codex-rs/cli:codex"],
                 {},
             )
         )
-        self.assertEqual(
-            run_bazel_with_buildbuddy.bazel_args_with_remote_config(
-                ["build", "--config=ci-linux", "--", "//codex-rs/cli:codex"],
-                {},
-            ),
-            ["build", "--", "//codex-rs/cli:codex"],
-        )
+        for remote_config in ("ci-linux", "ci-macos", "ci-windows-cross"):
+            with self.subTest(remote_config=remote_config):
+                configured_args = (
+                    run_bazel_with_buildbuddy.bazel_args_with_remote_config(
+                        [
+                            "build",
+                            f"--config={remote_config}",
+                            "--",
+                            "//codex-rs/cli:codex",
+                        ],
+                        {},
+                    )
+                )
+                self.assertEqual(
+                    configured_args,
+                    ["build", "--config=ci", "--", "//codex-rs/cli:codex"],
+                )
+                self.assertFalse(
+                    any(
+                        arg in run_bazel_with_buildbuddy.REMOTE_EXECUTION_CONFIGS
+                        for arg in configured_args
+                    )
+                )
 
     def test_program_arguments_after_separator_do_not_select_or_lose_rbe(self) -> None:
         args = ["run", "//codex-rs/cli:codex", "--", "--config=remote"]

@@ -435,6 +435,23 @@ run_bazel_with_startup_args \
 bazel_status=${PIPESTATUS[0]}
 set -e
 
+if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
+  echo "Bazel CI disk usage after command:"
+  df -h "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
+  df -i "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
+  for cache_path in \
+    "${BAZEL_OUTPUT_BASE:-}" \
+    "${BAZEL_OUTPUT_USER_ROOT:-}" \
+    "${BAZEL_REPOSITORY_CACHE:-}" \
+    "${BAZEL_REPO_CONTENTS_CACHE:-}" \
+    "${CARGO_TARGET_DIR:-}" \
+    "${TEMP:-}"; do
+    if [[ -n "$cache_path" && -e "$cache_path" ]]; then
+      du -sh -- "$cache_path"
+    fi
+  done
+fi
+
 if [[ ${bazel_status:-0} -ne 0 ]]; then
   if [[ $print_failed_bazel_action_summary -eq 1 ]]; then
     print_bazel_action_failure_summary "$bazel_console_log"
