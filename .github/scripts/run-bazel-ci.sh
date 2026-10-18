@@ -406,6 +406,16 @@ fi
 bazel_console_log="$(mktemp)"
 trap 'rm -f "$bazel_console_log"' EXIT
 
+if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
+  default_bazel_disk_cache="${HOME:-}/.cache/bazel-disk-cache"
+  echo "Default Bazel disk-cache path before command: ${default_bazel_disk_cache}"
+  if [[ -e "${default_bazel_disk_cache}" ]]; then
+    du -sh -- "${default_bazel_disk_cache}"
+  else
+    echo "Default Bazel disk-cache path is absent."
+  fi
+fi
+
 bazel_run_args=(
   "${bazel_args[@]}"
 )
@@ -440,6 +450,7 @@ if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
   df -h "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
   df -i "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
   for cache_path in \
+    "${HOME:-}/.cache/bazel-disk-cache" \
     "${BAZEL_OUTPUT_BASE:-}" \
     "${BAZEL_OUTPUT_USER_ROOT:-}" \
     "${BAZEL_REPOSITORY_CACHE:-}" \

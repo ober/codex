@@ -205,11 +205,33 @@ def bazel_args_with_remote_config(
             arg.startswith(option_prefix) for arg in configured_args[:separator_idx]
         )
     ]
-    return [
+    configured_args = [
         *configured_args[:separator_idx],
         *cache_args,
         *configured_args[separator_idx:],
     ]
+
+    if env.get("GITHUB_ACTIONS") == "true" and not env.get("BUILDBUDDY_API_KEY"):
+        # The repository default bazelrc enables a local disk cache. Public CI
+        # runners use ephemeral storage and can fill it with duplicate Bazel
+        # artifacts. Command-line options override bazelrc settings, so place
+        # this explicit empty value last among the Bazel options (immediately
+        # before `--`, or at the end when there is no separator).
+        try:
+            separator_idx = configured_args.index("--")
+        except ValueError:
+            separator_idx = len(configured_args)
+        configured_args = [
+            *(
+                arg
+                for arg in configured_args[:separator_idx]
+                if not arg.startswith("--disk_cache=")
+            ),
+            "--disk_cache=",
+            *configured_args[separator_idx:],
+        ]
+
+    return configured_args
 
 
 def bazel_command(*args: str, env: Mapping[str, str] | None = None) -> list[str]:

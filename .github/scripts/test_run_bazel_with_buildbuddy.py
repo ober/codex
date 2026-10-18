@@ -64,6 +64,79 @@ class RunBazelWithBuildBuddyTest(unittest.TestCase):
                     )
                 )
 
+    def test_keyless_github_invocation_disables_disk_cache_after_configs(self) -> None:
+        for remote_config in ("ci-linux", "ci-macos", "ci-windows-cross"):
+            with self.subTest(remote_config=remote_config):
+                configured_args = (
+                    run_bazel_with_buildbuddy.bazel_args_with_remote_config(
+                        [
+                            "build",
+                            f"--config={remote_config}",
+                            "--disk_cache=/tmp/stale-cache",
+                            "--repo_contents_cache=/tmp/repos",
+                            "--",
+                            "//codex-rs/...",
+                        ],
+                        {"GITHUB_ACTIONS": "true"},
+                    )
+                )
+
+                self.assertEqual(
+                    configured_args[-3:],
+                    ["--disk_cache=", "--", "//codex-rs/..."],
+                )
+                self.assertIn("--config=ci", configured_args)
+                self.assertIn("--repo_contents_cache=/tmp/repos", configured_args)
+                self.assertNotIn("--disk_cache=/tmp/stale-cache", configured_args)
+
+    def test_keyless_github_query_places_disk_cache_before_expression(self) -> None:
+        configured_args = run_bazel_with_buildbuddy.bazel_args_with_remote_config(
+            ["cquery", "--output=files", "//codex-rs/cli:codex"],
+            {"GITHUB_ACTIONS": "true"},
+        )
+
+        self.assertEqual(
+            configured_args,
+            ["cquery", "--output=files", "//codex-rs/cli:codex", "--disk_cache="],
+        )
+
+    def test_keyless_github_disk_cache_override_preserves_other_argument_boundaries(
+        self,
+    ) -> None:
+        configured_args = run_bazel_with_buildbuddy.bazel_args_with_remote_config(
+            [
+                "test",
+                "--test_arg",
+                "separate value",
+                "--config=ci-linux",
+                "//:target",
+                "--",
+                "--disk_cache=/test-argument",
+            ],
+            {"GITHUB_ACTIONS": "true"},
+        )
+
+        self.assertEqual(
+            configured_args,
+            [
+                "test",
+                "--config=ci",
+                "--test_arg",
+                "separate value",
+                "//:target",
+                "--disk_cache=",
+                "--",
+                "--disk_cache=/test-argument",
+            ],
+        )
+
+    def test_keyless_local_invocation_does_not_change_disk_cache(self) -> None:
+        args = ["build", "//codex-rs/..."]
+        self.assertEqual(
+            run_bazel_with_buildbuddy.bazel_args_with_remote_config(args, {}),
+            args,
+        )
+
     def test_program_arguments_after_separator_do_not_select_or_lose_rbe(self) -> None:
         args = ["run", "//codex-rs/cli:codex", "--", "--config=remote"]
 
@@ -212,6 +285,7 @@ class RunBazelWithBuildBuddyTest(unittest.TestCase):
                 "--noexperimental_remote_repo_contents_cache",
                 "build",
                 "//codex-rs/...",
+                "--disk_cache=",
             ],
         )
         self.assertEqual(
@@ -227,6 +301,7 @@ class RunBazelWithBuildBuddyTest(unittest.TestCase):
                 "--experimental_remote_repo_contents_cache",
                 "build",
                 "//codex-rs/...",
+                "--disk_cache=",
             ],
         )
 
