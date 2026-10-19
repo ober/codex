@@ -10,6 +10,33 @@ Use the supported model explicitly (`gpt-5.6-sol` or another model confirmed
 available to the account). The inherited model `gpt-6.1-sol` is not accepted by
 the native service and fails with HTTP 400 before any tool executes.
 
+## FreeBSD kqueue stale-event regression (2026-10-19)
+
+On FreeBSD 15.1-RELEASE-p4, a native notify 8.2.0 stress test reproduced a
+panic in kqueue 1.1.1 at `Event::new`'s `EVFILT_VNODE` identity unwrap. A
+worker performed 2,000 create/write/rename/rewrite/delete rounds while the
+main thread repeatedly removed and recursively re-added the root watch. The
+kernel can deliver a vnode event already queued before watch removal after
+notify has removed that descriptor from kqueue's identity map. The baseline
+then panicked, cascaded through notify, and exited with signal 6. This was a
+dependency-level reproduction, independent of the installed Codex pair.
+
+The fix vendors the unmodified notify 8.2.0 package (CC0-1.0; source package
+SHA-256 `4d3d07927151ff8575b7087f245456e549fea62edf0ec4e565a5ee50c8402bc3`),
+updates its kqueue dependency to 1.2.1, and handles the structured
+`Ident::Fd` + `NotFound` stale-event case. Other errors still reach notify's
+event handler. On the same host and workload, the fixed candidate passed four
+runs of 2,000 mutation rounds each, with 0 reported errors; observed
+transition/callback counts were 258/517, 243/551, 252/562, and 251/489. The
+focused dispatch regression test verifies that the stale event is dropped and
+that mapped `NotFound` and other errors are forwarded. The native vendored
+crate suite passed 8/8 tests, and the workspace's locked `codex-file-watcher`
+check passed. Evidence and harnesses are retained under
+`~/work/codex-runtime-repro/notify-kqueue-lifecycle-20261019/` and
+`~/work/codex-runtime-repro/notify-kqueue-fixed-20261019/`; private raw logs
+are mode 0600. The earlier real TUI watch-lifecycle smoke passed through the
+FreeBSD CLI, and the exact `cod-fbsd` wrapper is being rechecked after install.
+
 ## Latest native-pair build (2026-10-18)
 
 The current installed pair was built from repository commit
