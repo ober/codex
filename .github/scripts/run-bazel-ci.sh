@@ -7,6 +7,7 @@ print_failed_bazel_action_summary=0
 remote_download_toplevel=0
 windows_msvc_host_platform=0
 windows_cross_compile=0
+windows_local_cross_fallback=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -256,10 +257,11 @@ if [[ ${#bazel_args[@]} -eq 0 || ${#bazel_targets[@]} -eq 0 ]]; then
 fi
 
 if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" ]]; then
-  # Windows cross-compilation depends on authenticated RBE. Preserve the local
-  # Windows build shape when credentials are unavailable.
-  ci_config=ci-windows
+  # Keep the non-remote Windows settings while the BuildBuddy wrapper removes
+  # ci-windows-cross from keyless invocations.
+  ci_config=ci-windows-cross-local
   windows_msvc_host_platform=1
+  windows_local_cross_fallback=1
 fi
 
 post_config_bazel_args=()
@@ -279,6 +281,17 @@ if [[ "${RUNNER_OS:-}" == "Windows" && $windows_msvc_host_platform -eq 1 ]]; the
     # explicit `--platforms=...` flag.
     post_config_bazel_args+=("--host_platform=//:local_windows_msvc")
   fi
+
+  if [[ $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" && -n "${VOICE_WINDOWS_PKGCONF_REPOSITORY:-}" ]]; then
+    # Gnullvm Cargo build scripts need a Windows-hosted pkgconf executable,
+    # but resolving the native-MSVC voice provider would pull in licensed
+    # MSVC/SDK inputs. The fork-safe fallback provisions only pinned pkgconf.
+    post_config_bazel_args+=(
+      "--inject_repository=voice_windows_pkgconf=${VOICE_WINDOWS_PKGCONF_REPOSITORY}"
+      "--//third_party/voice:windows_pkgconf_only=true"
+      "--//third_party/voice:windows_installed_pkgconf=@voice_windows_pkgconf//:pkgconf_files"
+    )
+  fi
 fi
 
 if [[ $remote_download_toplevel -eq 1 ]]; then
@@ -296,14 +309,19 @@ if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -n "${BUI
   # Bazel also derives the default genrule shell from the client host. Without
   # an explicit shell executable, remote Linux actions can be asked to run
   # `C:\Program Files\Git\usr\bin\bash.exe`.
-  post_config_bazel_args+=(--host_platform=//:rbe --shell_executable=/bin/bash)
+  post_config_bazel_args+=(
+    --host_platform=//:rbe
+    --shell_executable=/bin/bash
+    --platforms=//:windows_x86_64_gnullvm
+  )
 fi
 
 if [[ "${RUNNER_OS:-}" == "Windows" && $windows_cross_compile -eq 1 && -z "${BUILDBUDDY_API_KEY:-}" ]]; then
-  # The Windows cross-compile config depends on authenticated remote
-  # execution. When credentials are unavailable, keep the local build shape
-  # and its lower concurrency cap.
-  post_config_bazel_args+=(--jobs=8)
+  # Keep the target explicit after Windows platform-specific rc expansion.
+  post_config_bazel_args+=(
+    "--platforms=//:windows_x86_64_gnullvm"
+    "--jobs=8"
+  )
 fi
 
 if [[ -n "${BAZEL_REPO_CONTENTS_CACHE:-}" ]]; then
@@ -350,7 +368,11 @@ if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
 
     for env_var in "${windows_action_env_vars[@]}"; do
       if [[ -n "${!env_var:-}" ]]; then
-        post_config_bazel_args+=("--action_env=${env_var}" "--host_action_env=${env_var}")
+        if [[ $windows_local_cross_fallback -eq 1 ]]; then
+          post_config_bazel_args+=("--host_action_env=${env_var}")
+        else
+          post_config_bazel_args+=("--action_env=${env_var}" "--host_action_env=${env_var}")
+        fi
       fi
     done
   fi
@@ -361,10 +383,14 @@ if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
   fi
 
   if [[ $pass_windows_build_env -eq 1 ]]; then
-    post_config_bazel_args+=(
-      "--action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
-      "--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
-    )
+    if [[ $windows_local_cross_fallback -eq 1 ]]; then
+      post_config_bazel_args+=("--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}")
+    else
+      post_config_bazel_args+=(
+        "--action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
+        "--host_action_env=PATH=${CODEX_BAZEL_WINDOWS_PATH}"
+      )
+    fi
   elif [[ $windows_cross_compile -eq 1 ]]; then
     # Remote build actions run on Linux RBE workers. Give their shell snippets
     # a Linux PATH while preserving CODEX_BAZEL_WINDOWS_PATH below for local
@@ -380,11 +406,24 @@ fi
 bazel_console_log="$(mktemp)"
 trap 'rm -f "$bazel_console_log"' EXIT
 
+if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
+  default_bazel_disk_cache="${HOME:-}/.cache/bazel-disk-cache"
+  echo "Default Bazel disk-cache path before command: ${default_bazel_disk_cache}"
+  if [[ -e "${default_bazel_disk_cache}" ]]; then
+    du -sh -- "${default_bazel_disk_cache}"
+  else
+    echo "Default Bazel disk-cache path is absent."
+  fi
+fi
+
 bazel_run_args=(
   "${bazel_args[@]}"
 )
 if [[ -n "${BUILDBUDDY_API_KEY:-}" ]]; then
   echo "BuildBuddy API key is available; using remote Bazel configuration."
+  bazel_run_args+=("--config=${ci_config}")
+elif [[ $windows_local_cross_fallback -eq 1 ]]; then
+  echo "BuildBuddy API key is not available; using the local Windows GNU cross configuration."
   bazel_run_args+=("--config=${ci_config}")
 else
   echo "BuildBuddy API key is not available; using local Bazel configuration."
@@ -405,6 +444,24 @@ run_bazel_with_startup_args \
   2>&1 | tee "$bazel_console_log"
 bazel_status=${PIPESTATUS[0]}
 set -e
+
+if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
+  echo "Bazel CI disk usage after command:"
+  df -h "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
+  df -i "${CI_BUILD_ROOT:-$HOME/.cache/codex-ci}" "${GITHUB_WORKSPACE:-$PWD}"
+  for cache_path in \
+    "${HOME:-}/.cache/bazel-disk-cache" \
+    "${BAZEL_OUTPUT_BASE:-}" \
+    "${BAZEL_OUTPUT_USER_ROOT:-}" \
+    "${BAZEL_REPOSITORY_CACHE:-}" \
+    "${BAZEL_REPO_CONTENTS_CACHE:-}" \
+    "${CARGO_TARGET_DIR:-}" \
+    "${TEMP:-}"; do
+    if [[ -n "$cache_path" && -e "$cache_path" ]]; then
+      du -sh -- "$cache_path"
+    fi
+  done
+fi
 
 if [[ ${bazel_status:-0} -ne 0 ]]; then
   if [[ $print_failed_bazel_action_summary -eq 1 ]]; then

@@ -12,6 +12,50 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Reclaim unused Android SDK space on public Unix runners
+      if: >-
+        (runner.os == 'Linux' || runner.os == 'macOS') &&
+        runner.environment == 'github-hosted' &&
+        (github.repository != 'openai/codex' ||
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository))
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Disk space before Bazel setup (workspace filesystem):"
+        df -h "$GITHUB_WORKSPACE"
+        df -i "$GITHUB_WORKSPACE"
+
+        # Bazel jobs in this repository target desktop platforms and do not
+        # consume the Android SDK preinstalled on GitHub-hosted Linux/macOS images.
+        # Restrict removal to the documented runner-image path and refuse
+        # symlinks so an environment override cannot redirect this cleanup.
+        if [[ "$RUNNER_OS" == Linux ]]; then
+          android_sdk=/usr/local/lib/android/sdk
+        else
+          android_sdk="$HOME/Library/Android/sdk"
+        fi
+        if [[ "${ANDROID_HOME:-}" != "$android_sdk" || ! -d "$android_sdk" || -L "$android_sdk" ]]; then
+          echo "Android SDK cleanup skipped: expected the runner-image SDK at $android_sdk"
+        else
+          resolved_android_sdk="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$android_sdk")"
+          if [[ "$resolved_android_sdk" != "$android_sdk" ]]; then
+            echo "Android SDK cleanup skipped: resolved path differs from the expected runner-image path"
+          else
+            echo "Removing unused runner-image Android SDK ($android_sdk):"
+            du -sh -- "$android_sdk"
+            if [[ "$RUNNER_OS" == Linux ]]; then
+              sudo rm -rf --one-file-system -- "$android_sdk"
+            else
+              sudo rm -rf "$android_sdk"
+            fi
+          fi
+        fi
+
+        echo "Disk space after Bazel setup cleanup (workspace filesystem):"
+        df -h "$GITHUB_WORKSPACE"
+        df -i "$GITHUB_WORKSPACE"
+
     - id: setup_ci
       uses: ./.github/actions/setup-ci
 

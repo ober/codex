@@ -24,13 +24,11 @@ codex-windows-sandbox = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+wxc_common = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-# MXC's SDK only ships executable backends for Windows, Linux, and macOS, and
-# its unsupported-host cfg currently fails to compile on FreeBSD. Codex only
-# calls the SDK from the Windows implementation below, so keep the dependency
-# out of unsupported host builds while retaining the existing Windows path.
-mxc-sdk = { workspace = true }
+appcontainer_common = { workspace = true }
+learning_mode_windows = { workspace = true }
 # 1.2.4 imports OneCore_apiset, which the GNU Windows toolchain does not ship.
 tracelogging = "=1.2.3"
 windows-sys = { workspace = true, features = [
@@ -38,6 +36,7 @@ windows-sys = { workspace = true, features = [
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
     "Win32_System_SystemInformation",
+    "Win32_System_WindowsProgramming",
     "Win32_UI_Shell",
 ] }
 

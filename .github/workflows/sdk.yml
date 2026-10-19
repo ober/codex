@@ -5,9 +5,7 @@ on:
 
 jobs:
   python-sdk-installation:
-    runs-on:
-      group: ${{ github.event.repository.name }}-runners
-      labels: ${{ github.event.repository.name }}-linux-x64
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('{"group":"codex-runners","labels":"codex-linux-x64"}') || 'ubuntu-24.04' }}
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -36,10 +34,8 @@ jobs:
             '
 
   sdks:
-    runs-on:
-      group: ${{ github.event.repository.name }}-runners
-      labels: ${{ github.event.repository.name }}-linux-x64
-    timeout-minutes: 20
+    runs-on: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('{"group":"codex-runners","labels":"codex-linux-x64"}') || 'ubuntu-24.04' }}
+    timeout-minutes: ${{ github.repository == 'openai/codex' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 20 || 120 }}
     environment:
       name: bazel
       deployment: false
@@ -104,11 +100,11 @@ jobs:
               'set(//codex-rs/cli:codex //codex-rs/code-mode-host:codex-code-mode-host)' \
               | grep -E '^(/|bazel-out/)'
           )"
-          mapfile -t bazel_output_paths <<< "${cquery_output}"
-          if [[ ${#bazel_output_paths[@]} -ne 2 ]]; then
-            echo "Expected both Bazel-built binaries, found ${#bazel_output_paths[@]}." >&2
-            exit 1
-          fi
+          selected_binaries="$(
+            python3 .github/scripts/select_sdk_binaries.py codex codex-code-mode-host \
+              <<< "${cquery_output}"
+          )"
+          mapfile -t bazel_output_paths <<< "${selected_binaries}"
 
           # Stage both binaries together so the CLI can discover its sibling
           # code-mode host while the SDK tests spawn the CLI directly.

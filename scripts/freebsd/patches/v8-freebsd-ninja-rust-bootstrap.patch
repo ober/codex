@@ -1,0 +1,5 @@
+--- build.rs.orig
++++ build.rs
+@@ -683,1 +683,1 @@
+-  build("rusty_v8", None);
++  build("rusty_v8", Some(vec![("RUSTC_BOOTSTRAP".to_owned(), "1".to_owned())]));

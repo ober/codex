@@ -55,6 +55,7 @@ mod approvals;
 mod audio_truncation;
 mod auth_recovery_policy;
 mod auto_review;
+mod base_instructions;
 #[path = "bedrock_multi_agent_tests.rs"]
 mod bedrock_multi_agent;
 #[path = "bedrock_service_tier_tests.rs"]
@@ -100,6 +101,8 @@ mod gateway_auth;
 mod guardian_connector_trust;
 #[cfg(not(target_os = "windows"))]
 mod guardian_context_budget;
+#[path = "guardian_cyber_access_program_tests.rs"]
+mod guardian_cyber_access_program;
 mod guardian_history;
 mod guardian_mcp_elicitation;
 #[cfg(not(target_os = "windows"))]
@@ -161,6 +164,7 @@ mod multi_exec_server_sandbox;
 mod network_approval;
 mod openai_file_mcp;
 mod otel;
+mod output_token_replay;
 mod override_updates;
 mod pending_input;
 mod pending_input_persistence;
@@ -254,5 +258,6 @@ mod window_headers;
 mod workspace_roots;
 mod worktree_trust;
 
+mod executor_discovery_v2;
 #[path = "guardian_sender_messages_tests.rs"]
 mod guardian_sender_messages;

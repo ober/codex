@@ -1,10 +1,11 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_foreign_cc//toolchains/native_tools:native_tools_toolchain.bzl", "native_tool_toolchain")
 load(":native.bzl", "native_prefix")
 load(":native_link.bzl", "native_link")
 load(":pkg_config.bzl", "pkg_config")
 load(":runtime.bzl", "native_runtime")
-load(":windows_native.bzl", "windows_build_tools", "windows_native_prefix")
+load(":windows_native.bzl", "windows_build_tools", "windows_native_prefix", "windows_pkg_config")
 
 # All native build consumers must receive the same pinned source manifest.
 exports_files(["opus-toolchain.cmake"])
@@ -125,6 +126,7 @@ native_tool_toolchain(
 alias(
     name = "pkg_config",
     actual = select({
+        ":windows_pkgconf_only_enabled": ":windows_pkg_config_only",
         ":windows_x86_64": ":windows_tools_x86_64",
         ":windows_aarch64": ":windows_tools_aarch64",
         "//conditions:default": ":pkg_config_unix",
@@ -307,6 +309,34 @@ alias(
 filegroup(
     name = "windows_tools_unavailable",
     srcs = [],
+)
+
+bool_flag(
+    name = "windows_pkgconf_only",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_pkgconf_only_enabled",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    flag_values = {":windows_pkgconf_only": "true"},
+)
+
+label_flag(
+    name = "windows_installed_pkgconf",
+    build_setting_default = ":windows_tools_unavailable",
+    visibility = ["//visibility:public"],
+)
+
+windows_pkg_config(
+    name = "windows_pkg_config_only",
+    installed_pkgconf = ":windows_installed_pkgconf",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
 )
 
 label_flag(

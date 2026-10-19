@@ -22,8 +22,10 @@ keyring = { workspace = true, features = ["apple-native"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { workspace = true, features = ["windows-native"] }
 
-[target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-keyring = { workspace = true, features = ["sync-secret-service"] }
+# FreeBSD and OpenBSD do not have a guaranteed Secret Service/DBus provider.
+# Keep the portable keyring API available; callers receive the platform error
+# when secure storage is unavailable instead of making the CLI require DBus at
+# link time.
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

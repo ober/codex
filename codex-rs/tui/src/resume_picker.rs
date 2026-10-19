@@ -340,11 +340,11 @@ struct SessionPickerViewPersistence {
 struct SessionPickerRunOptions {
     use_theme_colors: bool,
     copy_on_select: bool,
+    copy_on_select_clear_selection: bool,
     mouse_scroll_speed: f64,
     show_all: bool,
     filter_cwd: Option<PathBuf>,
     local_filter_cwd: Option<PathBuf>,
-    worktrees_enabled: bool,
     action: SessionPickerAction,
     launch_context: SessionPickerLaunchContext,
     provider_filter: ProviderFilter,
@@ -452,11 +452,11 @@ async fn run_resume_picker_with_launch_context(
     let options = SessionPickerRunOptions {
         use_theme_colors: local_settings.tui.status_line_use_colors,
         copy_on_select: local_settings.copy_on_select(&codex_terminal_detection::terminal_info()),
+        copy_on_select_clear_selection: local_settings.tui.copy_on_select_clear_selection,
         mouse_scroll_speed: local_settings.tui.mouse_scroll_speed.unwrap_or(1.0),
         show_all,
         filter_cwd: cwd_filter,
         local_filter_cwd,
-        worktrees_enabled: config.features.enabled(codex_features::Feature::Worktrees),
         action: SessionPickerAction::Resume,
         launch_context,
         provider_filter,
@@ -513,11 +513,11 @@ pub async fn run_fork_picker_with_app_server(
     let options = SessionPickerRunOptions {
         use_theme_colors: local_settings.tui.status_line_use_colors,
         copy_on_select: local_settings.copy_on_select(&codex_terminal_detection::terminal_info()),
+        copy_on_select_clear_selection: local_settings.tui.copy_on_select_clear_selection,
         mouse_scroll_speed: local_settings.tui.mouse_scroll_speed.unwrap_or(1.0),
         show_all,
         filter_cwd: cwd_filter,
         local_filter_cwd,
-        worktrees_enabled: config.features.enabled(codex_features::Feature::Worktrees),
         action: SessionPickerAction::Fork,
         launch_context: SessionPickerLaunchContext::Startup,
         provider_filter,
@@ -569,8 +569,8 @@ async fn run_session_picker_with_loader(
     state.local_filter_cwd = options.local_filter_cwd;
     state.use_theme_colors = options.use_theme_colors;
     state.copy_on_select = options.copy_on_select;
+    state.copy_on_select_clear_selection = options.copy_on_select_clear_selection;
     state.mouse_scroll_speed = options.mouse_scroll_speed;
-    state.worktrees_enabled = options.worktrees_enabled;
     state.density = options.initial_density;
     state.view_persistence = options.view_persistence;
     state.keymap = options.keymap;
@@ -722,9 +722,6 @@ fn spawn_app_server_page_loader(
                         request.cursor.as_ref(),
                         request.cwd_filter.as_deref(),
                         uses_remote_filesystem,
-                        config.as_ref().is_some_and(|config| {
-                            config.features.enabled(codex_features::Feature::Worktrees)
-                        }),
                     );
                     let cursor = request.cursor.map(|PageCursor::AppServer(cursor)| cursor);
                     let params = thread_list_params(
@@ -848,6 +845,7 @@ struct PickerState {
     clock_format: ClockFormat,
     use_theme_colors: bool,
     copy_on_select: bool,
+    copy_on_select_clear_selection: bool,
     mouse_scroll_speed: f64,
     // Resolve local filesystem membership once per cwd for each page-loading cycle.
     local_cwd_matches: HashMap<PathBuf, bool>,
@@ -874,7 +872,6 @@ struct PickerState {
     status: SessionStatus,
     filter_cwd: Option<PathBuf>,
     local_filter_cwd: Option<PathBuf>,
-    worktrees_enabled: bool,
     toolbar_focus: ToolbarControl,
     density: SessionListDensity,
     launch_context: SessionPickerLaunchContext,
@@ -1050,6 +1047,7 @@ impl PickerState {
             clock_format: ClockFormat::system(),
             use_theme_colors: true,
             copy_on_select: false,
+            copy_on_select_clear_selection: false,
             mouse_scroll_speed: 1.0,
             requester,
             relative_time_reference: None,
@@ -1074,7 +1072,6 @@ impl PickerState {
             status: SessionStatus::Active,
             local_filter_cwd: filter_cwd.clone(),
             local_cwd_matches: HashMap::new(),
-            worktrees_enabled: false,
             filter_cwd,
             toolbar_focus: ToolbarControl::Filter,
             density: SessionListDensity::Comfortable,
@@ -1157,7 +1154,8 @@ impl PickerState {
             self.keymap.pager.clone(),
             self.copy_on_select,
             self.mouse_scroll_speed,
-        );
+        )
+        .with_copy_on_select_clear_selection(self.copy_on_select_clear_selection);
         if let Overlay::Transcript(view) = &mut overlay {
             view.set_keymap_bindings(&self.keymap);
         }
@@ -1699,13 +1697,11 @@ impl PickerState {
             return false;
         };
         paths_match(row_cwd, filter_cwd)
-            || (self.worktrees_enabled
-                && codex_git_utils::repository_identity(row_cwd)
-                    .zip(codex_git_utils::repository_identity(filter_cwd))
-                    .is_some_and(|(row, filter)| {
-                        row.common_dir == filter.common_dir
-                            && row.relative_cwd == filter.relative_cwd
-                    }))
+            || codex_git_utils::repository_identity(row_cwd)
+                .zip(codex_git_utils::repository_identity(filter_cwd))
+                .is_some_and(|(row, filter)| {
+                    row.common_dir == filter.common_dir && row.relative_cwd == filter.relative_cwd
+                })
     }
 
     fn set_query(&mut self, new_query: String) {
@@ -2123,10 +2119,8 @@ fn thread_list_params(
 pub(crate) fn repository_cwd_filter(
     cwd: &Path,
     uses_remote_filesystem: bool,
-    worktrees_enabled: bool,
 ) -> ThreadListCwdFilter {
-    if worktrees_enabled
-        && !uses_remote_filesystem
+    if !uses_remote_filesystem
         && let Some(cwds) = codex_git_utils::linked_worktree_cwds(cwd)
         && cwds.len() > 1
     {
@@ -2888,12 +2882,11 @@ fn render_comfortable_session_lines(
         .as_ref()
         .map(|path| format_directory_display(path, /*max_width*/ None));
     let show_cwd = state.filter_mode == SessionFilterMode::All
-        || (state.worktrees_enabled
-            && row
-                .cwd
-                .as_deref()
-                .zip(state.local_filter_cwd.as_deref())
-                .is_some_and(|(row_cwd, filter_cwd)| !paths_match(row_cwd, filter_cwd)));
+        || row
+            .cwd
+            .as_deref()
+            .zip(state.local_filter_cwd.as_deref())
+            .is_some_and(|(row_cwd, filter_cwd)| !paths_match(row_cwd, filter_cwd));
     let footer_lines = render_footer_lines(
         state.sort_key,
         &created,
@@ -3760,7 +3753,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worktrees_filtering_requires_feature() {
+    async fn linked_worktree_sessions_are_included_for_local_repositories() {
         let root = tempfile::tempdir().expect("temporary repository");
         let primary = root.path().join("primary");
         let linked = root.path().join("linked");
@@ -3788,59 +3781,43 @@ mod tests {
         let mut row = make_row("session.jsonl", "2025-01-01T00:00:00Z", "Linked session");
         row.cwd = Some(linked.clone());
         let single = ThreadListCwdFilter::One(primary.display().to_string());
-        for enabled in [false, true] {
-            state.worktrees_enabled = enabled;
-            state.start_initial_load();
-            state.ingest_page(page(
-                vec![row.clone()],
-                /*next_cursor*/ None,
-                /*num_scanned_files*/ 1,
-                /*reached_scan_cap*/ false,
-            ));
-            assert_eq!(
-                state.filtered_rows,
-                if enabled { vec![row.clone()] } else { vec![] }
-            );
-            if enabled {
-                state
-                    .pagination
-                    .finish_load(state.next_request_token - 1)
-                    .expect("initial page completed");
-                state.relative_time_reference =
-                    Some(parse_timestamp_str("2025-01-02T00:00:00Z").expect("fixed time"));
-                // The retained row was filtered using its real checkout path; use a stable
-                // display path so the snapshot is independent of the temporary directory.
-                state.filtered_rows[0].cwd = Some(PathBuf::from("/repo/linked"));
-                state.update_viewport(/*rows*/ 12, /*width*/ 100);
-                assert_snapshot!(
-                    "resume_picker_linked_worktree",
-                    render_picker_list(&state, /*width*/ 100, /*height*/ 12)
-                );
-            }
-            assert_eq!(
-                repository_cwd_filter(&primary, /*uses_remote_filesystem*/ false, enabled),
-                if enabled {
-                    ThreadListCwdFilter::Many(vec![
-                        primary.display().to_string(),
-                        linked.display().to_string(),
-                    ])
-                } else {
-                    single.clone()
-                }
-            );
-            assert_eq!(
-                repository_cwd_filter(&primary, /*uses_remote_filesystem*/ true, enabled),
-                single
-            );
-        }
-        let mut config = crate::legacy_core::config::ConfigBuilder::default()
+        state.start_initial_load();
+        state.ingest_page(page(
+            vec![row.clone()],
+            /*next_cursor*/ None,
+            /*num_scanned_files*/ 1,
+            /*reached_scan_cap*/ false,
+        ));
+        assert_eq!(state.filtered_rows, vec![row.clone()]);
+        state
+            .pagination
+            .finish_load(state.next_request_token - 1)
+            .expect("initial page completed");
+        state.relative_time_reference =
+            Some(parse_timestamp_str("2025-01-02T00:00:00Z").expect("fixed time"));
+        // The retained row was filtered using its real checkout path; use a stable
+        // display path so the snapshot is independent of the temporary directory.
+        state.filtered_rows[0].cwd = Some(PathBuf::from("/repo/linked"));
+        state.update_viewport(/*rows*/ 12, /*width*/ 100);
+        assert_snapshot!(
+            "resume_picker_linked_worktree",
+            render_picker_list(&state, /*width*/ 100, /*height*/ 12)
+        );
+        assert_eq!(
+            repository_cwd_filter(&primary, /*uses_remote_filesystem*/ false),
+            ThreadListCwdFilter::Many(vec![
+                primary.display().to_string(),
+                linked.display().to_string(),
+            ])
+        );
+        assert_eq!(
+            repository_cwd_filter(&primary, /*uses_remote_filesystem*/ true),
+            single
+        );
+        let config = crate::legacy_core::config::ConfigBuilder::default()
             .codex_home(root.path().to_path_buf())
             .build()
             .await
-            .unwrap();
-        config
-            .features
-            .set_enabled(codex_features::Feature::Worktrees, /*enabled*/ true)
             .unwrap();
         for (filename_ts, timestamp, cwd) in [
             ("2025-01-02T10-00-00", "2025-01-02T10:00:00Z", &primary),
@@ -3879,7 +3856,6 @@ mod tests {
             SessionPickerAction::Resume,
         );
         live_picker.local_filter_cwd = Some(primary.clone());
-        live_picker.worktrees_enabled = true;
         live_picker.start_initial_load();
         let event = tokio::time::timeout(std::time::Duration::from_secs(10), bg_rx.recv())
             .await
@@ -3911,7 +3887,6 @@ mod tests {
         let mut local = crate::latest_session_lookup_params(
             /*uses_remote_filesystem*/ false,
             /*model_provider*/ None,
-            &config,
             Some(&primary),
             /*include_non_interactive*/ false,
             crate::LatestSessionLookupMode::StateDbOnly,
@@ -3922,7 +3897,6 @@ mod tests {
             crate::latest_session_lookup_params(
                 /*uses_remote_filesystem*/ true,
                 /*model_provider*/ None,
-                &config,
                 Some(&primary),
                 /*include_non_interactive*/ false,
                 crate::LatestSessionLookupMode::StateDbOnly,

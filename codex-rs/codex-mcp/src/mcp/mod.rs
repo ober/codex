@@ -186,6 +186,8 @@ pub struct McpConfig {
     pub non_prefixed_mcp_tool_servers: Vec<String>,
     /// Protocol mode for servers other than the host-owned Codex Apps registration.
     pub protocol_mode: McpProtocolMode,
+    /// Refresh ordinary server catalogs after tools/list_changed notifications.
+    pub mcp_tool_list_changed: bool,
     /// Independent protocol mode for the trusted, HTTP Codex Apps registration.
     pub host_owned_apps_protocol_mode: McpProtocolMode,
     /// Client-side elicitation capabilities advertised during MCP initialization.
@@ -374,9 +376,10 @@ fn is_trusted_chatgpt_mcp_server(
         return false;
     }
 
-    if url::Url::parse(CHATGPT_CODEX_BASE_URL)
-        .ok()
-        .is_some_and(|chatgpt_url| server_url.origin() == chatgpt_url.origin())
+    if [CHATGPT_CODEX_BASE_URL, "https://gov.chatgpt.com"]
+        .into_iter()
+        .filter_map(|base_url| url::Url::parse(base_url).ok())
+        .any(|trusted_url| server_url.origin() == trusted_url.origin())
     {
         return true;
     }

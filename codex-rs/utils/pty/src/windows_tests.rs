@@ -94,6 +94,7 @@ struct WindowsShell {
     program: String,
     args: Vec<String>,
     child_command: String,
+    readiness_timeout_ms: u64,
 }
 
 fn find_powershell() -> Option<String> {
@@ -373,23 +374,39 @@ async fn conpty_delivers_input_to_foreground_children() -> anyhow::Result<()> {
         eprintln!("python not found; skipping ConPTY input test");
         return Ok(());
     };
-    let code = format!(
-        "print('__CODEX_CHILD_'+'READY__', flush=True); value=input(); print('{VALUE_MARKER}'+value.encode('utf-8').hex(), flush=True)"
-    );
+    let child_script = tempfile::tempdir()?;
+    let child_script_path = child_script.path().join("pty_foreground_child.py");
+    std::fs::write(
+        &child_script_path,
+        format!(
+            "print('{READY_MARKER}', flush=True)\nvalue = input()\nprint('{VALUE_MARKER}' + value.encode('utf-8').hex(), flush=True)\n"
+        ),
+    )?;
+    let child_script_path = child_script_path.to_string_lossy().into_owned();
     let expected = "cafeé 漢字";
     let expected_marker = format!("{VALUE_MARKER}{}", utf8_hex(expected));
     let mut shells = vec![WindowsShell {
         name: "cmd",
         program: std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string()),
         args: vec!["/D".to_string(), "/Q".to_string()],
-        child_command: format!("\"{}\" -u -c \"{code}\"", python.replace('"', "\"\"")),
+        child_command: format!(
+            "\"{}\" -u \"{}\"",
+            python.replace('"', "\"\""),
+            child_script_path.replace('"', "\"\"")
+        ),
+        readiness_timeout_ms: 10_000,
     }];
     if let Some(program) = find_powershell() {
         shells.push(WindowsShell {
             name: "PowerShell",
             program,
             args: vec!["-NoLogo".to_string(), "-NoProfile".to_string()],
-            child_command: format!("& '{}' -u -c \"{code}\"", python.replace('\'', "''")),
+            child_command: format!(
+                "& '{}' -u '{}'",
+                python.replace('\'', "''"),
+                child_script_path.replace('\'', "''")
+            ),
+            readiness_timeout_ms: 30_000,
         });
     }
     let env: HashMap<String, String> = std::env::vars().collect();
@@ -410,7 +427,7 @@ async fn conpty_delivers_input_to_foreground_children() -> anyhow::Result<()> {
         writer
             .send(format!("{}\n", shell.child_command).into_bytes())
             .await?;
-        wait_for_output_contains(&mut output_rx, READY_MARKER, /*timeout_ms*/ 10_000)
+        wait_for_output_contains(&mut output_rx, READY_MARKER, shell.readiness_timeout_ms)
             .await
             .map_err(|err| anyhow::anyhow!("{} child did not become ready: {err}", shell.name))?;
 

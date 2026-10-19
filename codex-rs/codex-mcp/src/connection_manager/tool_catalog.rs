@@ -65,7 +65,7 @@ pub fn tool_is_model_visible(tool: &ToolInfo) -> bool {
 }
 
 /// Catalog identity within one published connection set, including cached declarations.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) enum BindingCatalogRevision {
     Ready(ClientToolCatalogRevision),
     Cached(u64),
@@ -171,7 +171,13 @@ impl McpConnectionSet {
                 }
                 return None;
             };
-            if client.client.is_closed().await {
+            if client.client.is_closed().await
+                || (view.refresh_tool_list
+                    && !view.connection.client.is_codex_apps_mcp_server
+                    && !client
+                        .tool_catalog
+                        .notifications_current(&client.client.tool_list_revision()))
+            {
                 return None;
             }
             let revision = client.tool_catalog.read(|catalog| catalog.revision).await;
@@ -213,7 +219,7 @@ impl McpConnectionSet {
                         .startup_complete
                         .load(Ordering::Acquire);
                     let server_tools = view
-                        .listed_tools(&self.tool_plugin_context)
+                        .listed_tools(server_name, &self.tool_plugin_context)
                         .instrument(trace_span!(
                             "list_tools_for_server",
                             server_name = %server_name,
@@ -364,7 +370,12 @@ impl McpConnectionSet {
                 .client
                 .startup_complete
                 .load(Ordering::Acquire);
-            let accepts_cached_catalog = view.startup_readiness == McpStartupReadiness::Catalog;
+            // A transient Apps startup failure must not remove functions already discovered
+            // by the model. Keep retrying even when the cached catalog supplies this step.
+            view.connection.client.reconnect_failed_startup().await;
+            let accepts_cached_catalog = view.startup_readiness == McpStartupReadiness::Catalog
+                || (view.connection.client.is_codex_apps_mcp_server
+                    && !view.connection.client.cancel_token.is_cancelled());
             let cached_tools = if startup_pending
                 || (accepts_cached_catalog && view.connection.client.ready_client().is_none())
             {
@@ -383,11 +394,11 @@ impl McpConnectionSet {
                 {
                     return None;
                 }
-                view.connection.client.reconnect_failed_startup().await;
                 let Ok(mut client) = view.connection.client().await else {
                     trace!(server_name = %server_name, "omitting MCP server without an exact ready client");
                     return None;
                 };
+                view.refresh_notified_catalog(server_name, &client).await;
                 client.tool_timeout = view.tool_timeout;
                 let snapshot = client.tool_catalog.read(Arc::new).await;
                 let server_tools = snapshot.tools.to_vec();
@@ -544,6 +555,7 @@ impl McpConnectionSet {
         if !view.tool_filter.allows(&advertised_tool.tool.name) {
             return None;
         }
+        // Recovery belongs to readiness, before the caller acquires the tool execution lock.
         let mut client = view.connection.client().await.ok()?;
         client.tool_timeout = view.tool_timeout;
         let snapshot = client.tool_catalog.read(Arc::new).await;

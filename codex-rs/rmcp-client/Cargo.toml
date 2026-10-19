@@ -92,8 +92,9 @@ keyring = { workspace = true, features = ["apple-native"] }
 keyring = { workspace = true, features = ["windows-native"] }
 windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem"] }
 
-[target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-keyring = { workspace = true, features = ["sync-secret-service"] }
+# FreeBSD and OpenBSD do not guarantee a Secret Service/DBus provider. Keep
+# the portable keyring API and let runtime credential storage report its native
+# availability instead of requiring DBus at link time.
 
 # These tests are compiled through `#[path]` inside the inline `oauth::tests` module. Cargo-shear
 # cannot resolve those nested module paths and otherwise reports the linked files as unlinked.

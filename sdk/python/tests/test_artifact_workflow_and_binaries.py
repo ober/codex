@@ -144,14 +144,6 @@ def test_root_format_driver_covers_all_formatter_groups(
 ) -> None:
     """The shared driver should retain every formatter in both modes."""
     script = _load_root_format_script_module()
-    for name in (
-        "bazel/rules/example.rs",
-        "codex-rs/src/lib.rs",
-        "codex-rs/new file.rs",
-    ):
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("")
     git_ls_files_args = [
         "git",
         "ls-files",
@@ -164,11 +156,6 @@ def test_root_format_driver_covers_all_formatter_groups(
     # The Python SDK CI image has no Git; keep discovery mocked at the process boundary.
     def fake_check_output(args, *, cwd):
         assert cwd == tmp_path
-        if args == git_ls_files_args + ["--", "*.rs"]:
-            return (
-                b"codex-rs/src/lib.rs\0bazel/rules/example.rs\0"
-                b"codex-rs/new file.rs\0codex-rs/deleted.rs\0"
-            )
         assert args == git_ls_files_args
         return b"MODULE.bazel\0README.md\0third_party/v8/libcxx.BUILD.bazel\0"
 
@@ -230,25 +217,16 @@ def test_root_format_driver_covers_all_formatter_groups(
     )
     assert formatters[0].commands[-1].args == ("just", "--unstable", "--fmt")
     assert checks[0].commands[-1].args == ("just", "--unstable", "--fmt", "--check")
-    rustfmt_args = (
-        "rustfmt",
-        "--edition",
-        "2024",
-        "--config-path",
-        str(tmp_path / "codex-rs/rustfmt.toml"),
+    rust_formatter_args = (
+        "cargo",
+        "fmt",
+        "--",
         "--config",
-        "imports_granularity=Item,skip_children=true",
+        "imports_granularity=Item",
     )
-    rust_files = (
-        os.path.join("..", "bazel", "rules", "example.rs"),
-        "new file.rs",
-        os.path.join("src", "lib.rs"),
-    )
-    assert formatters[1].commands == (
-        script.Command(rustfmt_args + rust_files, tmp_path / "codex-rs"),
-    )
+    assert formatters[1].commands == (script.Command(rust_formatter_args, tmp_path / "codex-rs"),)
     assert checks[1].commands == (
-        script.Command(rustfmt_args + ("--check",) + rust_files, tmp_path / "codex-rs"),
+        script.Command(rust_formatter_args + ("--check",), tmp_path / "codex-rs"),
     )
     format_buildifier_args = formatters[2].commands[-1].args
     check_buildifier_args = checks[2].commands[-1].args
@@ -554,6 +532,30 @@ def test_generated_inline_image_class_names_remain_stable() -> None:
         InputImageFunctionCallOutputContentItem.__name__
         == "InputImageFunctionCallOutputContentItem"
     )
+
+
+def test_generated_image_generation_thread_item_alias_remains_available() -> None:
+    """Existing SDK callers can still construct and validate inline image-generation items."""
+    from openai_codex.generated.v2_all import (
+        ImageGenerationThreadItem,
+        ResultThreadItem,
+    )
+
+    item = ImageGenerationThreadItem.model_validate(
+        {
+            "failure": None,
+            "id": "image_1",
+            "result": "aW1hZ2U=",
+            "revisedPrompt": None,
+            "savedPath": None,
+            "status": "completed",
+            "transparentBackground": None,
+            "type": "imageGeneration",
+        }
+    )
+
+    assert ImageGenerationThreadItem is ResultThreadItem
+    assert isinstance(item, ResultThreadItem)
 
 
 def test_runtime_package_template_has_no_checked_in_binaries() -> None:

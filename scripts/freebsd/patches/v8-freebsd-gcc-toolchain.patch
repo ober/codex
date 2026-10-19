@@ -1,0 +1,98 @@
+--- build/toolchain/gcc_toolchain.gni.orig	2026-09-13 16:45:17 UTC
++++ build/toolchain/gcc_toolchain.gni
+@@ -46,6 +46,11 @@ if (enable_resource_allowlist_generation) {
+       "enable_resource_allowlist_generation=true does not work for target_os=$target_os")
+ }
+ 
++declare_args() {
++  extra_cxxflags = ""
++  extra_ldflags = ""
++}
++
+ # This template defines a toolchain for something that works like gcc
+ # (including clang).
+ #
+@@ -415,7 +420,8 @@ template("single_gcc_toolchain") {
+ 
+         # Add ar to inputs if it's not from $PATH. Some toolchains leave
+         # |ar| empty during toolchain setup, so guard get_path_info() here.
+-        if (ar != "" && get_path_info(ar, "file") != ar) {
++        # Skipped on BSD: tool("alink") inputs not supported by ports gn.
++        if (!is_bsd && ar != "" && get_path_info(ar, "file") != ar) {
+           inputs =
+               [ get_path_info(rebase_path(ar, ".", root_out_dir), "abspath") ]
+         }
+--- build/toolchain/gcc_toolchain.gni.orig
++++ build/toolchain/gcc_toolchain.gni
+@@ -770,7 +770,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $libname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+ 
+       tool("rust_rlib") {
+@@ -803,7 +806,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link,metadata=$rmetaname -o $rlibname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+ 
+       tool("rust_bin") {
+@@ -825,7 +831,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $exename -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+ 
+       tool("rust_cdylib") {
+@@ -848,7 +857,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+ 
+       tool("rust_dylib") {
+@@ -873,7 +885,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link,metadata=$rmetaname -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+ 
+       tool("rust_macro") {
+@@ -896,7 +911,10 @@
+             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+         rust_sysroot = rust_sysroot_relative
+-        inputs = rustc_wrapper_inputs
++        # GN 2345 lacks tool() inputs on BSD ports builds.
++        if (!is_bsd) {
++          inputs = rustc_wrapper_inputs
++        }
+       }
+     }
+ 

@@ -1,0 +1,362 @@
+{
+  "cases": [
+    {
+      "id": "default-sandbox-shell",
+      "sandbox": "default",
+      "expected_cli_exit": 0,
+      "prompt": "Use the code-mode shell tool to run exactly `printf DEFAULT_SANDBOX_OK`. Return the output and any tool error. Do not use MCP or edit files.",
+      "accepted_fail_closed": {
+        "error_contains": "filesystem sandbox cannot be enforced",
+        "no_completed_item_types": [
+          "command_execution"
+        ]
+      },
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "DEFAULT_SANDBOX_OK"
+          ]
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "workspace-write-fail-closed",
+      "sandbox": "workspace-write",
+      "expected_cli_exit": 0,
+      "prompt": "Use the code-mode shell tool to run exactly `touch workspace-write-ran; printf WORKSPACE_WRITE_OK`. Return the output and any tool error. Do not use MCP or edit files another way.",
+      "fail_closed_error_contains": "filesystem sandbox cannot be enforced",
+      "no_completed_item_types": [
+        "command_execution"
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "shell-exec",
+      "sandbox": "danger-full-access",
+      "prompt": "Use the code-mode shell execution tool to run exactly `printf EXEC_OK`. Return the output. Do not use MCP or edit files.",
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "EXEC_OK"
+          ]
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "pty-write-stdin",
+      "sandbox": "danger-full-access",
+      "prompt": "Use a persistent PTY: start `sh -c 'printf \"PTY_READY\\n\"; read input; printf \"PTY_RECEIVED:%s\\n\" \"$input\"'`, then send `hello` through the interactive stdin/write_stdin tool. Return both markers. Do not substitute a one-shot shell command.",
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "PTY_READY\r\nhello\r\n",
+            "PTY_RECEIVED:hello"
+          ]
+        }
+      ],
+      "expected_files": {},
+      "started_item_expectations": [
+        {
+          "type": "command_execution",
+          "command_contains": "read input"
+        }
+      ]
+    },
+    {
+      "id": "exec-cell-wait",
+      "sandbox": "danger-full-access",
+      "prompt": "Invoke code-mode exec with exactly this raw JavaScript source (no fences): `// @exec: {\"yield_time_ms\":100}\nconst result = await tools.exec_command({cmd: \"sleep 2; printf WAIT_CELL_OK\"});\ntext(result.output);` Then, because exec must yield before the command finishes, use the returned cell id with wait until completion. Return the final cell output and do not use MCP.",
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "WAIT_CELL_OK"
+          ]
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "apply-patch",
+      "sandbox": "danger-full-access",
+      "prompt": "Use apply_patch to create only `patch-marker.txt` in this scratch workspace with exactly `PATCH_APPLIED_OK` followed by a newline. Read it back and report its contents. Do not run shell commands.",
+      "expected_items": [
+        {
+          "type": "file_change",
+          "status": "completed",
+          "changes": [
+            {
+              "path": "patch-marker.txt",
+              "kind": "add"
+            }
+          ]
+        }
+      ],
+      "expected_files": {
+        "patch-marker.txt": "PATCH_APPLIED_OK\n"
+      }
+    },
+    {
+      "id": "parallel-shell",
+      "sandbox": "danger-full-access",
+      "prompt": "Use code mode to run these two shell commands concurrently and await both. The first command must write exactly A to `a.started`, wait at most two seconds for `b.started`, fail if it never appears, and print PARALLEL_A. The second must write exactly B to `b.started`, wait at most two seconds for `a.started`, fail if it never appears, and print PARALLEL_B. Use shell printf, a short sleep loop, and test; do not run them sequentially and do not use MCP. Report both outputs.",
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "PARALLEL_A"
+          ]
+        },
+        {
+          "type": "command_execution",
+          "status": "completed",
+          "exit_code": 0,
+          "aggregated_output_contains": [
+            "PARALLEL_B"
+          ]
+        }
+      ],
+      "expected_files": {
+        "a.started": "A",
+        "b.started": "B"
+      }
+    },
+    {
+      "id": "error-propagation",
+      "sandbox": "danger-full-access",
+      "prompt": "Use the code-mode shell execution tool to run exactly `codex-runtime-repro-command-that-does-not-exist`. Report the tool error verbatim and do not retry.",
+      "expected_items": [
+        {
+          "type": "command_execution",
+          "status": "failed",
+          "aggregated_output_contains": [
+            "codex-runtime-repro-command-that-does-not-exist"
+          ]
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "jerboa-list-features-read",
+      "server": "jerboa",
+      "tool": "jerboa_list_features",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.jerboa.enabled_tools=[\"jerboa_list_features\"]",
+        "mcp_servers.jerboa.tools.jerboa_list_features.approval_mode=\"approve\""
+      ],
+      "prompt": "Call the configured Jerboa MCP tool jerboa_list_features with query \"freebsd codex\" and limit 3. Return its result. Do not use shell or any other MCP tool.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "jerboa",
+          "tool": "jerboa_list_features",
+          "status": "completed",
+          "arguments": {
+            "query": "freebsd codex",
+            "limit": 3
+          },
+          "arguments_exact": true,
+          "result_payload_present": true
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "jerboa-howto-search-read",
+      "server": "jerboa",
+      "tool": "jerboa_howto",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.jerboa.enabled_tools=[\"jerboa_howto\"]",
+        "mcp_servers.jerboa.tools.jerboa_howto.approval_mode=\"approve\""
+      ],
+      "prompt": "Call only Jerboa MCP jerboa_howto with query \"source forms\", max_results 2, compact true. Return the result. Do not use shell or another tool.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "jerboa",
+          "tool": "jerboa_howto",
+          "status": "completed",
+          "arguments": {
+            "query": "source forms",
+            "max_results": 2,
+            "compact": true
+          },
+          "arguments_exact": true,
+          "result_payload_present": true
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "jerboa-balance-check-read",
+      "server": "jerboa",
+      "tool": "jerboa_check_balance",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.jerboa.enabled_tools=[\"jerboa_check_balance\"]",
+        "mcp_servers.jerboa.tools.jerboa_check_balance.approval_mode=\"approve\""
+      ],
+      "prompt": "Call only Jerboa MCP jerboa_check_balance with the `code` argument set to the exact Scheme source string `(define (freebsd-smoke x) x)`. Report whether it is balanced. Do not access a file or use another tool.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "jerboa",
+          "tool": "jerboa_check_balance",
+          "status": "completed",
+          "arguments": {
+            "code": "(define (freebsd-smoke x) x)"
+          },
+          "arguments_exact": true,
+          "result_payload_present": true
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "jerboa-error-fix-lookup-read",
+      "server": "jerboa",
+      "tool": "jerboa_error_fix_lookup",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.jerboa.enabled_tools=[\"jerboa_error_fix_lookup\"]",
+        "mcp_servers.jerboa.tools.jerboa_error_fix_lookup.approval_mode=\"approve\""
+      ],
+      "prompt": "Call only Jerboa MCP jerboa_error_fix_lookup with error_message \"unbound variable: codex-freebsd-test\" and search_all false. Return the result without changing any files.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "jerboa",
+          "tool": "jerboa_error_fix_lookup",
+          "status": "completed",
+          "arguments": {
+            "error_message": "unbound variable: codex-freebsd-test",
+            "search_all": false
+          },
+          "arguments_exact": true,
+          "result_payload_present": true
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "fixture-mcp-write-read",
+      "sandbox": "workspace-write",
+      "config_overrides": [
+        "mcp_servers.codex_fixture.command=\"python3\"",
+        "mcp_servers.codex_fixture.args=[\"__FIXTURE_MCP_SERVER__\"]",
+        "mcp_servers.codex_fixture.env={ CODEX_FIXTURE_ROOT = \"__FIXTURE_ROOT__\" }",
+        "mcp_servers.codex_fixture.enabled_tools=[\"fixture_write\",\"fixture_read\"]",
+        "mcp_servers.codex_fixture.tools.fixture_write.approval_mode=\"approve\"",
+        "mcp_servers.codex_fixture.tools.fixture_read.approval_mode=\"approve\""
+      ],
+      "prompt": "Use only the local MCP server codex_fixture. Call fixture_write with path \"probe.txt\" and content \"FIXTURE_MCP_WRITE_OK\\n\", then call fixture_read with path \"probe.txt\". Report the text returned by fixture_read. Do not use shell or another server.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "codex_fixture",
+          "tool": "fixture_write",
+          "status": "completed",
+          "arguments": {
+            "path": "probe.txt",
+            "content": "FIXTURE_MCP_WRITE_OK\n"
+          },
+          "arguments_exact": true,
+          "result_payload_present": true
+        },
+        {
+          "type": "mcp_tool_call",
+          "server": "codex_fixture",
+          "tool": "fixture_read",
+          "status": "completed",
+          "arguments": {
+            "path": "probe.txt"
+          },
+          "arguments_exact": true,
+          "result_payload_present": true,
+          "result_contains": "FIXTURE_MCP_WRITE_OK"
+        }
+      ],
+      "expected_files": {
+        "probe.txt": "FIXTURE_MCP_WRITE_OK\n"
+      }
+    },
+    {
+      "id": "fixture-mcp-error",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.codex_fixture.command=\"python3\"",
+        "mcp_servers.codex_fixture.args=[\"__FIXTURE_MCP_SERVER__\"]",
+        "mcp_servers.codex_fixture.env={ CODEX_FIXTURE_ROOT = \"__FIXTURE_ROOT__\" }",
+        "mcp_servers.codex_fixture.enabled_tools=[\"fixture_fail\"]",
+        "mcp_servers.codex_fixture.tools.fixture_fail.approval_mode=\"approve\""
+      ],
+      "prompt": "Call only codex_fixture.fixture_fail. Report its error text and do not retry or call another tool.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "codex_fixture",
+          "tool": "fixture_fail",
+          "status": "failed",
+          "arguments": {},
+          "arguments_exact": true,
+          "result_payload_present": true,
+          "result_contains": "fixture injected MCP error"
+        }
+      ],
+      "expected_files": {}
+    },
+    {
+      "id": "fixture-mcp-parallel",
+      "sandbox": "read-only",
+      "config_overrides": [
+        "mcp_servers.codex_fixture.command=\"python3\"",
+        "mcp_servers.codex_fixture.args=[\"__FIXTURE_MCP_SERVER__\"]",
+        "mcp_servers.codex_fixture.env={ CODEX_FIXTURE_ROOT = \"__FIXTURE_ROOT__\" }",
+        "mcp_servers.codex_fixture.enabled_tools=[\"fixture_parallel_left\",\"fixture_parallel_right\"]",
+        "mcp_servers.codex_fixture.tools.fixture_parallel_left.approval_mode=\"approve\"",
+        "mcp_servers.codex_fixture.tools.fixture_parallel_right.approval_mode=\"approve\""
+      ],
+      "prompt": "Use only codex_fixture. Call fixture_parallel_left and fixture_parallel_right concurrently and await both. Report both returned markers and the measured max_concurrent value. Do not call them sequentially or use another tool.",
+      "expected_items": [
+        {
+          "type": "mcp_tool_call",
+          "server": "codex_fixture",
+          "tool": "fixture_parallel_left",
+          "status": "completed",
+          "arguments": {},
+          "arguments_exact": true,
+          "result_payload_present": true,
+          "result_contains": "\"max_concurrent\": 2"
+        },
+        {
+          "type": "mcp_tool_call",
+          "server": "codex_fixture",
+          "tool": "fixture_parallel_right",
+          "status": "completed",
+          "arguments": {},
+          "arguments_exact": true,
+          "result_payload_present": true,
+          "result_contains": "\"max_concurrent\": 2"
+        }
+      ],
+      "expected_files": {}
+    }
+  ]
+}
