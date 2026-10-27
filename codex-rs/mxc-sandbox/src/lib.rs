@@ -5,7 +5,7 @@
 mod availability;
 #[cfg(windows)]
 mod native;
-#[cfg(windows)]
+#[cfg(any(windows, all(test, not(target_os = "freebsd"))))]
 mod policy;
 mod transport;
 #[cfg(windows)]
@@ -169,6 +169,6 @@ pub fn run_main() -> ! {
     }
 }
 
-#[cfg(all(windows, test))]
+#[cfg(all(test, not(target_os = "freebsd")))]
 #[path = "policy_tests.rs"]
 mod tests;
