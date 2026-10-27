@@ -43,6 +43,10 @@ impl SnapshotCapture {
             .child
             .id()
             .ok_or_else(|| io::Error::other("missing capture PID"))?;
+        // FreeBSD and DragonFly expose waitid's id_t as i64; the other
+        // supported Unix targets here use u32, matching Tokio's child PID.
+        #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
+        let pid = libc::id_t::from(pid);
         loop {
             {
                 let mut info = std::mem::MaybeUninit::<libc::siginfo_t>::zeroed();

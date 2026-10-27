@@ -67,11 +67,14 @@ impl CodeModeSessionProvider for ProcessOwnedCodeModeSessionProvider {
         if host_program.is_file() {
             Ok(())
         } else {
-            Err(ConnectionError::Spawn {
+            let error = ConnectionError::Spawn {
                 host_program: host_program.clone(),
                 error: io::Error::new(io::ErrorKind::NotFound, "host executable was not found"),
             }
-            .to_string())
+            .to_string();
+            Err(format!(
+                "{error}; build and install the matching code-mode host beside the Codex executable"
+            ))
         }
     }
 

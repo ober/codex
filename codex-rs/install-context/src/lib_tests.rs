@@ -516,3 +516,101 @@ fn brew_is_detected_on_macos_prefixes() {
 
 #[path = "bundle_tests.rs"]
 mod bundle_tests;
+
+#[cfg(target_os = "freebsd")]
+#[test]
+fn freebsd_named_executable_uses_matching_package_resource() -> std::io::Result<()> {
+    let package_dir = tempfile::tempdir()?;
+    let bin_dir = package_dir.path().join(BIN_DIRNAME);
+    let resources_dir = package_dir.path().join(RESOURCES_DIRNAME);
+    fs::create_dir_all(&bin_dir)?;
+    fs::create_dir_all(&resources_dir)?;
+    fs::write(package_dir.path().join(PACKAGE_METADATA_FILENAME), "{}")?;
+    let exe_path = bin_dir.join("codex-freebsd");
+    let resource_host = resources_dir.join("codex-code-mode-host-freebsd");
+    fs::write(&exe_path, "codex")?;
+    fs::write(&resource_host, "freebsd host")?;
+
+    let context = InstallContext::from_exe(
+        /*is_macos*/ false,
+        /*current_exe*/ Some(&exe_path),
+        /*method_override*/ None,
+    );
+
+    assert_eq!(
+        context.code_mode_host_program_for_exe(Some(&exe_path)),
+        AbsolutePathBuf::from_absolute_path(resource_host.canonicalize()?)?.into_path_buf()
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "freebsd")]
+#[test]
+fn freebsd_named_executable_uses_matching_sibling_host() -> std::io::Result<()> {
+    let install_dir = tempfile::tempdir()?;
+    let exe_path = install_dir.path().join("codex-freebsd");
+    let host_path = install_dir.path().join("codex-code-mode-host-freebsd");
+    fs::write(&exe_path, "codex")?;
+    fs::write(&host_path, "freebsd host")?;
+
+    let context = InstallContext::from_exe(
+        /*is_macos*/ false,
+        /*current_exe*/ Some(&exe_path),
+        /*method_override*/ None,
+    );
+
+    assert_eq!(
+        context.code_mode_host_program_for_exe(Some(&exe_path)),
+        host_path.canonicalize()?
+    );
+    Ok(())
+}
+
+#[test]
+fn conventionally_named_executable_uses_standard_package_resource() -> std::io::Result<()> {
+    let package_dir = tempfile::tempdir()?;
+    let bin_dir = package_dir.path().join(BIN_DIRNAME);
+    let resources_dir = package_dir.path().join(RESOURCES_DIRNAME);
+    fs::create_dir_all(&bin_dir)?;
+    fs::create_dir_all(&resources_dir)?;
+    fs::write(package_dir.path().join(PACKAGE_METADATA_FILENAME), "{}")?;
+    let exe_path = bin_dir.join(if cfg!(windows) { "codex.exe" } else { "codex" });
+    let resource_host = resources_dir.join(CODE_MODE_HOST_EXECUTABLE_NAME);
+    fs::write(&exe_path, "codex")?;
+    fs::write(&resource_host, "standard host")?;
+
+    let context = InstallContext::from_exe(
+        /*is_macos*/ false,
+        /*current_exe*/ Some(&exe_path),
+        /*method_override*/ None,
+    );
+
+    assert_eq!(
+        context.code_mode_host_program_for_exe(Some(&exe_path)),
+        resource_host.canonicalize()?
+    );
+    Ok(())
+}
+
+#[test]
+fn conventionally_named_executable_uses_standard_sibling_host() -> std::io::Result<()> {
+    let install_dir = tempfile::tempdir()?;
+    let exe_path = install_dir
+        .path()
+        .join(if cfg!(windows) { "codex.exe" } else { "codex" });
+    let host_path = install_dir.path().join(CODE_MODE_HOST_EXECUTABLE_NAME);
+    fs::write(&exe_path, "codex")?;
+    fs::write(&host_path, "standard host")?;
+
+    let context = InstallContext::from_exe(
+        /*is_macos*/ false,
+        /*current_exe*/ Some(&exe_path),
+        /*method_override*/ None,
+    );
+
+    assert_eq!(
+        context.code_mode_host_program_from_exe(Some(&exe_path)),
+        AbsolutePathBuf::from_absolute_path(host_path.canonicalize()?)?.into_path_buf()
+    );
+    Ok(())
+}

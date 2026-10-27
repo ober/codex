@@ -65,6 +65,8 @@ mod spawn_helper;
 mod spawn_helper_main;
 #[cfg(target_os = "linux")]
 pub use spawn_helper::init_spawn_helper;
-
+#[cfg(all(test, target_os = "freebsd"))]
+#[path = "freebsd_fds_tests.rs"]
+mod freebsd_fds_tests;
 #[cfg(all(test, target_os = "linux"))]
 use tests::spawn_helper_tests;

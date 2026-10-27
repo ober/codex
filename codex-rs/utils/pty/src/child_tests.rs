@@ -120,7 +120,7 @@ fn non_killing_drop_reaps_after_runtime_shutdown() -> anyhow::Result<()> {
             unsafe {
                 libc::waitid(
                     libc::P_PID,
-                    pid,
+                    waitid_pid(pid),
                     info.as_mut_ptr(),
                     libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
                 )
@@ -145,7 +145,7 @@ fn wait_until_reaped(pid: u32) -> anyhow::Result<()> {
         if unsafe {
             libc::waitid(
                 libc::P_PID,
-                pid,
+                waitid_pid(pid),
                 info.as_mut_ptr(),
                 libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
             )
@@ -161,6 +161,16 @@ fn wait_until_reaped(pid: u32) -> anyhow::Result<()> {
         std::thread::sleep(Duration::from_millis(10));
     }
     Ok(())
+}
+
+#[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
+fn waitid_pid(pid: u32) -> libc::id_t {
+    pid.into()
+}
+
+#[cfg(not(any(target_os = "freebsd", target_os = "dragonfly")))]
+fn waitid_pid(pid: u32) -> libc::id_t {
+    pid
 }
 
 #[tokio::test]

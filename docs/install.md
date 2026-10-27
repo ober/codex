@@ -2,11 +2,52 @@
 
 ### System requirements
 
-| Requirement                 | Details                                                         |
-| --------------------------- | --------------------------------------------------------------- |
-| Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, or Windows 11 **via WSL2** |
-| Git (optional, recommended) | 2.23+ for built-in PR helpers                                   |
-| RAM                         | 4-GB minimum (8-GB recommended)                                 |
+| Requirement                 | Details                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, FreeBSD 15+, or Windows 11 **via WSL2** |
+| Git (optional, recommended) | 2.23+ for built-in PR helpers                                                |
+| RAM                         | 4-GB minimum (8-GB recommended)                                              |
+
+FreeBSD source builds target `x86_64-unknown-freebsd`. Install Rust/Cargo, a C compiler, `cmake`, `pkgconf`, Git, Python, and `protobuf` (`protoc`) from the host package manager. The workspace pins Rust 1.95.0, while the native FreeBSD build exercised here uses Rust/Cargo 1.98.1; the minimum Rust version for the V8 source build has not been established. Its helper passes the active native Rust compiler's sysroot to GN for V8's Rust glue instead of downloading Chromium's Linux Rust toolchain. The code-mode host also needs native FreeBSD `gn` (2345), `ninja` (1.13.2), and LLVM 22 (22.1.8, including `libclang`); the helper uses the system `protoc`, so set `PROTOC` when it is not on `PATH`.
+
+These are the versions used for the verified build, not enforced package-version
+constraints: the helper checks for the required native tools and LLVM paths but
+does not reject other GN, Ninja, or Rust versions. Reproducible rebuilds should
+use the same toolchain package set. An optimized native build can require tens
+of gigabytes of memory.
+
+```sh
+git clone https://github.com/openai/codex.git
+cd codex
+scripts/freebsd/build-install.sh
+"$HOME/.local/bin/codex-freebsd" --version
+```
+
+Launch the native FreeBSD CLI with an unrestricted sandbox mode:
+
+```sh
+"$HOME/.local/bin/codex-freebsd" --sandbox danger-full-access
+```
+
+FreeBSD has no sandbox backend in this release, so restricted modes fail closed;
+use `danger-full-access` to run tools without filesystem or process isolation.
+This command names `codex-freebsd` explicitly and does not change the existing
+`codex` command or its Linux installation. No `--no-daemon` option is needed.
+
+The build helper builds the CLI and its V8-backed code-mode host, verifies that
+both outputs are native FreeBSD amd64 ELF binaries, and installs them as
+`codex-freebsd` and `codex-code-mode-host-freebsd`. It marks only the V8 host
+with the FreeBSD `wxneeded` ELF feature required by V8's JIT; it does not change
+machine-wide sysctls. The distinct helper name lets this install share
+`~/.local/bin` with a Linux `codex` without selecting a Linux companion. A
+normally packaged executable named `codex` keeps the conventional
+`codex-code-mode-host` resource name.
+
+FreeBSD has no Codex sandbox backend in this release. Requests that require a
+filesystem or process sandbox fail closed; do not map FreeBSD to the Linux
+bubblewrap backend. The native CLI, PTY execution, file operations, MCP, and
+TUI remain available subject to their host dependencies. There is no published
+FreeBSD npm or DotSlash artifact; run the binary built above.
 
 ### DotSlash
 

@@ -1,0 +1,11 @@
+--- build/toolchain/linux/BUILD.gn.orig
++++ build/toolchain/linux/BUILD.gn
+@@ -110,7 +110,7 @@
+ 
+   toolchain_args = {
+     current_cpu = "x64"
+-    current_os = "linux"
++    current_os = host_os
+   }
+ }
+ 

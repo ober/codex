@@ -1,0 +1,16 @@
+--- v8/src/zone/zone.h.orig	2026-09-07 08:43:04 UTC
++++ v8/src/zone/zone.h
+@@ -225,9 +225,10 @@ class V8_EXPORT_PRIVATE Zone final {
+   // (e.g. tracking allocated bytes, maintaining linked lists, etc).
+   void ReleaseSegment(Segment* segment);
+ 
+-  // All pointers returned from New() are 8-byte aligned.
+-  // ASan requires 8-byte alignment. MIPS also requires 8-byte alignment.
+-  static const size_t kAlignmentInBytes = 8;
++  // Align Zone allocations to the platform's maximum fundamental alignment.
++  // FreeBSD's 64-bit libc++ requires 16-byte alignment for types such as
++  // std::function; the previous fixed 8-byte alignment could under-align them.
++  static const size_t kAlignmentInBytes = alignof(std::max_align_t);
+ 
+   // Never allocate segments smaller than this size in bytes.
+   static const size_t kMinimumSegmentSize = 8 * KB;

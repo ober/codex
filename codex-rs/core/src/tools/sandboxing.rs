@@ -236,6 +236,7 @@ pub(crate) fn default_exec_approval_requirement(
 pub(crate) fn ensure_native_sandbox(
     sandbox_override: SandboxOverride,
     sandbox: SandboxType,
+    sandbox_requested: bool,
 ) -> Result<(), ToolError> {
     if sandbox_override == SandboxOverride::EscalatedSandboxWithRestrictions
         && sandbox == SandboxType::None
@@ -243,6 +244,11 @@ pub(crate) fn ensure_native_sandbox(
         return Err(ToolError::Rejected(
             "command escalation with denied reads requires an available filesystem sandbox"
                 .to_string(),
+        ));
+    }
+    if sandbox_requested && sandbox == SandboxType::None {
+        return Err(ToolError::Rejected(
+            "filesystem sandbox cannot be enforced on this host".to_string(),
         ));
     }
     Ok(())

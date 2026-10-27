@@ -349,7 +349,7 @@ impl ToolOrchestrator {
             SandboxType::None
         };
         if !executor_managed_process_sandbox {
-            ensure_native_sandbox(sandbox_override, initial_sandbox)?;
+            ensure_native_sandbox(sandbox_override, initial_sandbox, sandbox_requested)?;
         }
 
         let sandbox_policy_cwd = tool
